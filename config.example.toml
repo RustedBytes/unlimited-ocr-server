@@ -1,0 +1,76 @@
+[server]
+bind_addr = "0.0.0.0:3000"
+data_dir = "data"
+
+# Disabled by default. Enable only for trusted deployments and restrict roots.
+allow_local_paths = false
+local_path_roots = []
+
+# Empty by default, which disables CORS response headers.
+# Example: ["http://localhost:5173"]
+cors_allowed_origins = []
+
+# Empty by default, which disables API key authentication.
+# When set, send either `x-api-key: <key>` or `Authorization: Bearer <key>`.
+api_keys = []
+
+# Disabled by default. When greater than 0, applies a process-wide request limit.
+rate_limit_requests_per_minute = 0
+
+[model]
+# Supported variants: unlimited_ocr, custom
+variant = "unlimited_ocr"
+image_size = 1024
+
+# Optional explicit ONNX path. When set, this overrides variant path selection.
+# path = "Unlimited-OCR/onnx/unlimited_ocr.onnx"
+
+[queue]
+model_pool_size = 1
+queue_size = 128
+body_limit_bytes = 33554432
+
+# Set to 0 to disable whole-request timeout enforcement.
+request_timeout_seconds = 60
+
+[retention]
+# Limits how many jobs stay queryable in memory. Set to 0 to retain none.
+job_retention_limit = 1000
+
+# Limits how many latest metadata records are kept when JSONL files are compacted at startup.
+# Set to 0 to disable metadata compaction.
+metadata_retention_limit = 10000
+
+[validation]
+max_image_width = 8192
+max_image_height = 8192
+
+[generation]
+max_new_tokens = 256
+
+# Set to 0 to disable per-job timeout enforcement.
+job_timeout_seconds = 300
+
+# Set either value to 0 to disable that webhook timeout.
+webhook_timeout_seconds = 10
+webhook_connect_timeout_seconds = 5
+
+# Webhooks retry failed deliveries with exponential backoff.
+webhook_max_attempts = 1
+webhook_initial_backoff_ms = 500
+
+# Empty by default, which disables webhook HMAC signatures.
+# When set, webhooks include legacy `x-florence-signature: sha256=<hex-hmac>`.
+webhook_signing_secret = ""
+
+# Keep false unless this service runs in a trusted network and must call private webhook targets.
+allow_private_webhook_urls = false
+
+[runtime]
+# Supported values: auto, cpu, coreml, coreml_gpu, coreml_npu, xnnpack.
+# CUDA is also supported when the binary is built with `--features cuda`.
+# Keep auto as the default. Explicit providers remain opt-in.
+execution_providers = ["auto"]
+
+[logging]
+rust_log = "info,ort=warn"

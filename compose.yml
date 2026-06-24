@@ -1,0 +1,19 @@
+services:
+  unlimited-ocr:
+    build:
+      context: .
+      dockerfile: Containerfile
+    image: unlimited-ocr-server:local
+    ports:
+      - "3000:3000"
+    environment:
+      BIND_ADDR: 0.0.0.0:3000
+      DATA_DIR: /app/data
+      RUST_LOG: info,ort=warn
+    volumes:
+      - ./Unlimited-OCR:/app/Unlimited-OCR:ro
+      - unlimited-ocr-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  unlimited-ocr-data:

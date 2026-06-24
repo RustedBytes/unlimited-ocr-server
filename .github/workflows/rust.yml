@@ -1,0 +1,55 @@
+name: Rust
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/rust.yml"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "src/**"
+      - "tests/**"
+      - "benches/**"
+      - "examples/**/*.rs"
+      - "build.rs"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - ".github/workflows/rust.yml"
+      - "Cargo.lock"
+      - "Cargo.toml"
+      - "src/**"
+      - "tests/**"
+      - "benches/**"
+      - "examples/**/*.rs"
+      - "build.rs"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Run tests
+        run: cargo test

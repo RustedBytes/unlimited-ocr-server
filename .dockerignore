@@ -1,0 +1,12 @@
+.git/
+.github/
+target/
+data/
+Florence-2-base/
+
+.DS_Store
+*.log
+*.onnx
+*.ort
+
+config.toml
