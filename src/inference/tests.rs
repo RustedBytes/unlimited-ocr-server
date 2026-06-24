@@ -1,7 +1,14 @@
 use image::{DynamicImage, Rgb, RgbImage};
+use tokenizers::Tokenizer;
 
-use super::model::execution_provider_dispatches;
-use super::*;
+use super::{
+    feeds::{prepare_bool_for_test, prepare_i64_for_test},
+    image::preprocess_image,
+    model::execution_provider_dispatches,
+    prompt::{
+        BOS_TOKEN_ID, IMAGE_TOKEN_ID, build_image_prompt, clean_generated_text, image_token_count,
+    },
+};
 
 #[test]
 fn computes_unlimited_ocr_image_token_count() {
@@ -50,14 +57,14 @@ fn builds_prompt_with_explicit_image_token() {
 
 #[test]
 fn pads_fixed_length_inputs() {
-    let values = prepare_i64_1d(&[1, 2, 3], Some(5), 0, "input_ids").unwrap();
+    let values = prepare_i64_for_test(&[1, 2, 3], Some(5)).unwrap();
 
     assert_eq!(values, vec![1, 2, 3, 0, 0]);
 }
 
 #[test]
 fn rejects_inputs_longer_than_fixed_length() {
-    let err = prepare_bool_1d(&[true, false, true], Some(2), false, "images_seq_mask").unwrap_err();
+    let err = prepare_bool_for_test(&[true, false, true], Some(2)).unwrap_err();
 
     assert!(
         err.to_string()

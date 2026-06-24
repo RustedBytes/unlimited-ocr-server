@@ -18,4 +18,3 @@ pub(super) const DEFAULT_WEBHOOK_TIMEOUT_SECONDS: u64 = 10;
 pub(super) const DEFAULT_WEBHOOK_CONNECT_TIMEOUT_SECONDS: u64 = 5;
 pub(super) const DEFAULT_WEBHOOK_MAX_ATTEMPTS: usize = 1;
 pub(super) const DEFAULT_WEBHOOK_INITIAL_BACKOFF_MS: u64 = 500;
-pub(super) const DEFAULT_ALLOW_PRIVATE_WEBHOOK_URLS: bool = false;
