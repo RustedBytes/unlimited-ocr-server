@@ -90,6 +90,7 @@ impl UnlimitedOcrWorker {
         let session = load_session(&config.model_path, &config.execution_providers)?;
         let input_metadata = inspect_input_metadata(&session)?;
         validate_image_size(&input_metadata, config.model_image_size)?;
+        log_kv_cache_capability(id, &input_metadata);
         info!(
             "ONNX session loaded worker_id={} elapsed_ms={}",
             id,
@@ -366,6 +367,22 @@ fn detected_devices(worker_id: usize) -> anyhow::Result<Vec<String>> {
     }
 
     Ok(devices)
+}
+
+fn log_kv_cache_capability(worker_id: usize, metadata: &InputMetadata) {
+    if metadata.kv_cache.is_supported() {
+        info!(
+            "ONNX graph exposes KV-cache tensors worker_id={} {}",
+            worker_id,
+            metadata.kv_cache.summary()
+        );
+    } else {
+        warn!(
+            "ONNX graph does not expose a usable KV-cache interface worker_id={} {}; generation will run the full sequence for each token",
+            worker_id,
+            metadata.kv_cache.summary()
+        );
+    }
 }
 
 fn generation_metadata(

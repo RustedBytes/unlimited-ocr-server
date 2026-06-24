@@ -2,7 +2,7 @@ use image::{DynamicImage, Rgb, RgbImage};
 use tokenizers::Tokenizer;
 
 use super::{
-    feeds::{prepare_bool_for_test, prepare_i64_for_test},
+    feeds::{kv_cache_metadata_for_test, prepare_bool_for_test, prepare_i64_for_test},
     generation_step_limit,
     image::preprocess_image,
     model::execution_provider_dispatches,
@@ -46,6 +46,25 @@ fn dynamic_sequence_length_uses_requested_generation_steps() {
     let got = generation_step_limit(1024, 256, None).unwrap();
 
     assert_eq!(got, 256);
+}
+
+#[test]
+fn kv_cache_metadata_requires_matching_past_and_present_tensors() {
+    let supported = kv_cache_metadata_for_test(
+        vec![
+            "past_key_values.0.key".to_string(),
+            "past_key_values.0.value".to_string(),
+        ],
+        vec!["present.0.key".to_string(), "present.0.value".to_string()],
+    );
+    let unsupported = kv_cache_metadata_for_test(vec!["past_key_values.0.key".to_string()], vec![]);
+
+    assert!(supported.is_supported());
+    assert!(!unsupported.is_supported());
+    assert_eq!(
+        unsupported.summary(),
+        "past_inputs=1 present_outputs=0 supported=false"
+    );
 }
 
 #[test]

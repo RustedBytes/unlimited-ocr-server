@@ -14,7 +14,14 @@ pub(super) struct InputMetadata {
     pub(super) names: HashSet<String>,
     pub(super) image_dtype: TensorElementType,
     pub(super) fixed_sequence_length: Option<usize>,
+    pub(super) kv_cache: KvCacheMetadata,
     fixed_image_size: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct KvCacheMetadata {
+    past_inputs: Vec<String>,
+    present_outputs: Vec<String>,
 }
 
 pub(super) struct FeedInputs<'a> {
@@ -35,9 +42,14 @@ pub(super) fn inspect_input_metadata(session: &Session) -> anyhow::Result<InputM
     let mut image_dtype = None;
     let mut fixed_sequence_length = None;
     let mut fixed_image_size = None;
+    let mut past_inputs = Vec::new();
 
     for input in session.inputs() {
         names.insert(input.name().to_string());
+        if is_past_cache_name(input.name()) {
+            past_inputs.push(input.name().to_string());
+        }
+
         let ValueType::Tensor { ty, shape, .. } = input.dtype() else {
             continue;
         };
@@ -58,6 +70,13 @@ pub(super) fn inspect_input_metadata(session: &Session) -> anyhow::Result<InputM
         }
     }
 
+    let present_outputs = session
+        .outputs()
+        .iter()
+        .filter(|output| is_present_cache_name(output.name()))
+        .map(|output| output.name().to_string())
+        .collect();
+
     let image_dtype = image_dtype.ok_or_else(|| {
         anyhow!(
             "ONNX graph does not expose required input `images_ori`; found inputs: {:?}",
@@ -69,6 +88,7 @@ pub(super) fn inspect_input_metadata(session: &Session) -> anyhow::Result<InputM
         names,
         image_dtype,
         fixed_sequence_length,
+        kv_cache: KvCacheMetadata::new(past_inputs, present_outputs),
         fixed_image_size,
     })
 }
@@ -219,6 +239,22 @@ fn fixed_axis(shape: &Shape, axis: usize) -> Option<i64> {
     shape.get(axis).copied().filter(|dimension| *dimension > 0)
 }
 
+fn is_past_cache_name(name: &str) -> bool {
+    let normalized = name.to_ascii_lowercase();
+    normalized.starts_with("past_key_values.")
+        || normalized.starts_with("past_key_values_")
+        || normalized.starts_with("past.")
+        || normalized.starts_with("past_")
+}
+
+fn is_present_cache_name(name: &str) -> bool {
+    let normalized = name.to_ascii_lowercase();
+    normalized.starts_with("present.")
+        || normalized.starts_with("present_")
+        || normalized.starts_with("present_key_values.")
+        || normalized.starts_with("present_key_values_")
+}
+
 fn prepare_1d<T: Copy>(request: PadRequest<'_, T>) -> anyhow::Result<Vec<T>> {
     let Some(fixed_length) = request.fixed_length else {
         return Ok(request.values.to_vec());
@@ -287,6 +323,39 @@ pub(super) fn prepare_i64_for_test(
         pad_value: 0,
         input_name: "input_ids",
     })
+}
+
+impl KvCacheMetadata {
+    fn new(mut past_inputs: Vec<String>, mut present_outputs: Vec<String>) -> Self {
+        past_inputs.sort();
+        present_outputs.sort();
+
+        Self {
+            past_inputs,
+            present_outputs,
+        }
+    }
+
+    pub(super) fn is_supported(&self) -> bool {
+        !self.past_inputs.is_empty() && self.past_inputs.len() == self.present_outputs.len()
+    }
+
+    pub(super) fn summary(&self) -> String {
+        format!(
+            "past_inputs={} present_outputs={} supported={}",
+            self.past_inputs.len(),
+            self.present_outputs.len(),
+            self.is_supported()
+        )
+    }
+}
+
+#[cfg(test)]
+pub(super) fn kv_cache_metadata_for_test(
+    past_inputs: Vec<String>,
+    present_outputs: Vec<String>,
+) -> KvCacheMetadata {
+    KvCacheMetadata::new(past_inputs, present_outputs)
 }
 
 #[cfg(test)]
