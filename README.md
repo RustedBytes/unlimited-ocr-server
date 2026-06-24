@@ -4,7 +4,7 @@
 
 Minimal Axum server for running Unlimited-OCR ONNX image OCR inference in a background worker queue.
 
-![Unlimited-OCR inference server preview](docs/demo.jpg)
+![Unlimited-OCR inference server preview](docs/demo.png)
 
 ## Documentation
 
