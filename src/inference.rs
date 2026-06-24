@@ -31,7 +31,7 @@ use self::{
     prompt::{
         EOS_TOKEN_ID, PromptInputs, build_image_prompt, decode_generated_text, prompt_from_task,
     },
-    tensor::{TensorData, argmax_token_at_position, extract_output_tensor, tensor_metadata_f32},
+    tensor::{argmax_token_from_output_at_position, tensor_metadata_f32},
 };
 
 const TASK_TOKEN: &str = "unlimited_ocr";
@@ -249,8 +249,7 @@ impl UnlimitedOcrWorker {
                 .len()
                 .checked_sub(1)
                 .ok_or_else(|| anyhow!("input_ids cannot be empty"))?;
-            let logits = self.run_model(&state)?;
-            let next_token_id = argmax_token_at_position(&logits, position)?;
+            let next_token_id = self.run_model(&state, position)?;
 
             state.input_ids.push(next_token_id);
             state.images_seq_mask.push(false);
@@ -264,7 +263,7 @@ impl UnlimitedOcrWorker {
         Ok(generated)
     }
 
-    fn run_model(&mut self, state: &GenerationState<'_>) -> anyhow::Result<TensorData> {
+    fn run_model(&mut self, state: &GenerationState<'_>, position: usize) -> anyhow::Result<i64> {
         let feeds = make_feeds(
             &self.input_metadata,
             self.image_size,
@@ -291,7 +290,7 @@ impl UnlimitedOcrWorker {
             .run(feeds)
             .map_err(|err| anyhow!("Unlimited-OCR ONNX inference failed: {err}"))?;
 
-        extract_output_tensor(&outputs[0], "logits")
+        argmax_token_from_output_at_position(&outputs[0], "logits", position)
     }
 
     fn output_metadata(&self, image_array: &[f32], generated_tokens: usize) -> Vec<TensorMetadata> {
