@@ -102,16 +102,13 @@ async fn process_worker_request(
         "inference_job",
         job_id = %request.id,
         worker_id,
-        task_type = request.task.task_type_name(),
-        task_prompt = request.task.task_prompt_name(),
+        text_input_present = request.task.text_input.is_some(),
     );
     job_span.in_scope(|| {
         debug!(
-            "worker received job worker_id={} job_id={} task_type={} task_prompt={} text_input_present={} image_path={}",
+            "worker received job worker_id={} job_id={} text_input_present={} image_path={}",
             worker_id,
             request.id,
-            request.task.task_type_name(),
-            request.task.task_prompt_name(),
             request.task.text_input.is_some(),
             request.image_path.display()
         );

@@ -18,8 +18,6 @@ pub struct JobRequest {
 
 #[derive(Debug, thiserror::Error)]
 pub enum EnqueueError {
-    #[error("job record contains an invalid task specification")]
-    InvalidTask(#[source] crate::types::TaskSpecError),
     #[error("inference queue is full")]
     QueueFull,
     #[error("inference queue is closed")]
@@ -33,7 +31,7 @@ pub async fn enqueue_record(
     record: JobRecord,
 ) -> Result<QueueResponse, EnqueueError> {
     let id = record.id;
-    let request = job_request_from_record(&record)?;
+    let request = job_request_from_record(&record);
 
     if state.queue_tx.is_full() {
         return Err(EnqueueError::QueueFull);
@@ -77,26 +75,18 @@ pub async fn enqueue_record(
     Ok(queue_response(id))
 }
 
-fn job_request_from_record(record: &JobRecord) -> Result<JobRequest, EnqueueError> {
-    let task = TaskSpec::from_strings(
-        Some(record.task_type.clone()),
-        Some(record.task_prompt.clone()),
-        record.text_input.clone(),
-    )
-    .map_err(EnqueueError::InvalidTask)?;
-    Ok(JobRequest {
+fn job_request_from_record(record: &JobRecord) -> JobRequest {
+    JobRequest {
         id: record.id,
         image_path: record.image_path.clone(),
-        task,
-    })
+        task: TaskSpec::from_text_input(record.text_input.clone()),
+    }
 }
 
 fn log_queued_job(record: &JobRecord, queued: usize) {
     info!(
-        "job queued job_id={} task_type={} task_prompt={} text_input_present={} input_kind={} image_path={} image_bytes={} sha256={} queued={}",
+        "job queued job_id={} text_input_present={} input_kind={} image_path={} image_bytes={} sha256={} queued={}",
         record.id,
-        record.task_type,
-        record.task_prompt,
         record.text_input.is_some(),
         record.input_kind,
         record.image_path.display(),

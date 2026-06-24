@@ -30,8 +30,7 @@ pub struct JobRecord {
     pub image_bytes: usize,
     pub input_kind: String,
     pub source_path: Option<PathBuf>,
-    pub task_type: String,
-    pub task_prompt: String,
+    #[serde(default)]
     pub text_input: Option<String>,
     pub webhook_url: Option<String>,
     pub result: Option<InferenceMetadata>,

@@ -56,7 +56,7 @@ curl -s -X POST http://127.0.0.1:3000/v1/infer/path \
 
 Local-path inference is disabled by default. Enable `server.allow_local_paths` and configure `server.local_path_roots` before using this endpoint.
 
-`text_input` is the optional Unlimited-OCR prompt override. Empty or missing values use `<image>Free OCR.`. Legacy `task_type`, `task_prompt`, and `task` fields are accepted but ignored by inference.
+`text_input` is the optional Unlimited-OCR prompt override. Empty or missing values use `<image>Free OCR.`.
 
 `webhook_url` is optional for both submission endpoints. When set, it must use `http` or `https`, must not include credentials or fragments, and rejects local/private literal IP addresses by default. After the job reaches `succeeded` or `failed`, the server sends a `POST` request to that URL with a webhook event envelope:
 

@@ -9,9 +9,7 @@ pub use responses::{
     ErrorResponse, GpuMemoryResponse, HealthResponse, MetricsResponse, QueueResponse,
     ReadinessResponse, WorkerHealth,
 };
-#[cfg(test)]
-pub use task::{TaskPrompt, TaskType};
-pub use task::{TaskSpec, TaskSpecError};
+pub use task::TaskSpec;
 
 #[cfg(test)]
 mod tests;

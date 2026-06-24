@@ -4,6 +4,7 @@ use async_channel::bounded;
 use axum::body::Body;
 use axum::http::{HeaderName, HeaderValue, header};
 use axum::middleware;
+use serde_json::json;
 use tokio::sync::RwLock;
 use tower::ServiceExt;
 use tower_http::timeout::TimeoutLayer;
@@ -16,56 +17,38 @@ use super::*;
 use crate::{
     config::{Config, ModelVariant},
     state::{AppMetrics, RateLimiter, WorkerPoolState},
-    types::{TaskPrompt, TaskType},
 };
 
 #[test]
-fn request_task_defaults_to_single_ocr() {
-    let task = task_spec_from_request(None, None, None, None).unwrap();
+fn request_task_defaults_to_default_prompt() {
+    let task = task_spec_from_request(None);
 
-    assert_eq!(task.task_type, TaskType::Single);
-    assert_eq!(task.task_prompt, TaskPrompt::Ocr);
     assert_eq!(task.text_input, None);
 }
 
 #[test]
-fn request_task_prefers_task_prompt_over_alias() {
-    let task = task_spec_from_request(
-        Some("Single task".to_string()),
-        Some("OCR".to_string()),
-        Some("  text to trim  ".to_string()),
-        Some("Caption".to_string()),
-    )
-    .unwrap();
+fn request_task_trims_text_input() {
+    let task = task_spec_from_request(Some("  text to trim  ".to_string()));
 
-    assert_eq!(task.task_prompt, TaskPrompt::Ocr);
     assert_eq!(task.text_input.as_deref(), Some("text to trim"));
 }
 
 #[test]
-fn request_task_ignores_legacy_task_alias() {
-    let task = task_spec_from_request(
-        Some("Single task".to_string()),
-        None,
-        None,
-        Some("OCR with Region".to_string()),
-    )
-    .unwrap();
+fn request_task_ignores_empty_text_input() {
+    let task = task_spec_from_request(Some("   ".to_string()));
 
-    assert_eq!(task.task_prompt, TaskPrompt::Ocr);
+    assert_eq!(task.text_input, None);
 }
 
 #[test]
-fn request_task_accepts_invalid_legacy_prompt_for_compatibility() {
-    let task = task_spec_from_request(
-        Some("Single task".to_string()),
-        Some("Caption + Grounding".to_string()),
-        None,
-        None,
-    )
-    .unwrap();
+fn local_path_request_rejects_removed_task_fields() {
+    let err = serde_json::from_value::<submit::LocalPathRequest>(json!({
+        "image_path": "/tmp/image.png",
+        "task": "OCR"
+    }))
+    .unwrap_err();
 
-    assert_eq!(task.task_prompt, TaskPrompt::Ocr);
+    assert!(err.to_string().contains("unknown field `task`"));
 }
 
 #[test]
@@ -96,6 +79,11 @@ fn openapi_document_describes_core_paths() {
     assert!(document["paths"]["/v1/infer"].is_object());
     assert!(document["paths"]["/metrics"].is_object());
     assert!(document["components"]["schemas"]["ErrorResponse"].is_object());
+    assert!(document["components"]["schemas"]["LocalPathRequest"]["properties"]["task"].is_null());
+    assert!(
+        document["components"]["schemas"]["UploadInferenceRequest"]["properties"]["task_prompt"]
+            .is_null()
+    );
 }
 
 #[test]

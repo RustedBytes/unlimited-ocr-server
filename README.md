@@ -12,7 +12,6 @@ Minimal Axum server for running Unlimited-OCR ONNX image OCR inference in a back
 - [Running the server](docs/running.md)
 - [HTTP API](docs/http-api.md)
 - [Python client](docs/python-client.md)
-- [Prompt compatibility](docs/tasks.md)
 - [Configuration](docs/configuration.md)
 - [Metadata and cleanup](docs/metadata-and-cleanup.md)
 

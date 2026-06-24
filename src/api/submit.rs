@@ -28,13 +28,11 @@ pub(super) use self::validation::{
 use super::{ApiError, render_index};
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct LocalPathRequest {
     image_path: PathBuf,
-    task_type: Option<String>,
-    task_prompt: Option<String>,
     text_input: Option<String>,
     webhook_url: Option<String>,
-    task: Option<String>,
 }
 
 struct UploadedImage {
@@ -46,8 +44,6 @@ struct UploadedImage {
 #[derive(Default)]
 struct MultipartInferenceRequest {
     image: Option<UploadedImage>,
-    task_type: Option<String>,
-    task_prompt: Option<String>,
     text_input: Option<String>,
     webhook_url: Option<String>,
 }
@@ -105,11 +101,8 @@ async fn apply_multipart_field(
 ) -> Result<(), ApiError> {
     match name {
         "image" | "file" => request.image = Some(read_uploaded_image(field).await?),
-        "task_type" | "task_type_selector" => {
-            request.task_type = Some(read_text_field(field, "task_type").await?);
-        }
-        "task_prompt" | "task" => {
-            request.task_prompt = Some(read_text_field(field, "task").await?);
+        "task_type" | "task_type_selector" | "task_prompt" | "task" => {
+            return Err(unsupported_prompt_field(name));
         }
         "text_input" => request.text_input = Some(read_text_field(field, "text_input").await?),
         "webhook_url" => request.webhook_url = Some(read_text_field(field, "webhook_url").await?),
@@ -117,6 +110,12 @@ async fn apply_multipart_field(
     }
 
     Ok(())
+}
+
+fn unsupported_prompt_field(name: &str) -> ApiError {
+    ApiError::BadRequest(format!(
+        "multipart field `{name}` is not supported; use `text_input` for prompt overrides"
+    ))
 }
 
 async fn read_uploaded_image(field: Field<'_>) -> Result<UploadedImage, ApiError> {
@@ -150,12 +149,7 @@ async fn uploaded_job_record(
     state: &AppState,
     request: MultipartInferenceRequest,
 ) -> Result<JobRecord, ApiError> {
-    let task = task_spec_from_request(
-        request.task_type,
-        request.task_prompt,
-        request.text_input,
-        None,
-    )?;
+    let task = task_spec_from_request(request.text_input);
     let webhook_url = validate_webhook_url(&state.config, request.webhook_url)?;
     let image = request
         .image
@@ -182,8 +176,6 @@ async fn uploaded_job_record(
         image_bytes: image.bytes.len(),
         input_kind: "upload".to_string(),
         source_path: None,
-        task_type: task.task_type_name().to_string(),
-        task_prompt: task.task_prompt_name().to_string(),
         text_input: task.text_input,
         webhook_url,
         result: None,
@@ -239,12 +231,7 @@ async fn local_path_job_record(
     validate_image_bytes(state, content_type.as_deref(), &bytes)?;
 
     let id = Uuid::new_v4();
-    let task = task_spec_from_request(
-        request.task_type,
-        request.task_prompt,
-        request.text_input,
-        request.task,
-    )?;
+    let task = task_spec_from_request(request.text_input);
     let webhook_url = validate_webhook_url(&state.config, request.webhook_url)?;
     let filename = image_path
         .file_name()
@@ -271,8 +258,6 @@ async fn local_path_job_record(
         image_bytes: bytes.len(),
         input_kind: "local_path".to_string(),
         source_path: Some(image_path),
-        task_type: task.task_type_name().to_string(),
-        task_prompt: task.task_prompt_name().to_string(),
         text_input: task.text_input,
         webhook_url,
         result: None,
@@ -329,7 +314,6 @@ async fn read_local_image(image_path: &PathBuf) -> Result<Vec<u8>, ApiError> {
 impl From<EnqueueError> for ApiError {
     fn from(err: EnqueueError) -> Self {
         match err {
-            EnqueueError::InvalidTask(source) => ApiError::BadRequest(source.to_string()),
             EnqueueError::QueueFull => {
                 ApiError::ServiceUnavailable("inference queue is full".to_string())
             }
@@ -341,12 +325,6 @@ impl From<EnqueueError> for ApiError {
     }
 }
 
-pub(super) fn task_spec_from_request(
-    task_type: Option<String>,
-    task_prompt: Option<String>,
-    text_input: Option<String>,
-    task_alias: Option<String>,
-) -> Result<TaskSpec, ApiError> {
-    TaskSpec::from_strings(task_type, task_prompt.or(task_alias), text_input)
-        .map_err(|err| ApiError::BadRequest(err.to_string()))
+pub(super) fn task_spec_from_request(text_input: Option<String>) -> TaskSpec {
+    TaskSpec::from_text_input(text_input)
 }

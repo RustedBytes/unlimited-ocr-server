@@ -306,14 +306,6 @@
           "image_path": {
             "type": "string"
           },
-          "task_type": {
-            "type": "string",
-            "description": "Backward-compatible field accepted but ignored by Unlimited-OCR inference."
-          },
-          "task_prompt": {
-            "type": "string",
-            "description": "Backward-compatible field accepted but ignored by Unlimited-OCR inference."
-          },
           "text_input": {
             "type": [
               "string",
@@ -327,10 +319,6 @@
               "null"
             ],
             "format": "uri"
-          },
-          "task": {
-            "type": "string",
-            "deprecated": true
           }
         }
       },
@@ -343,14 +331,6 @@
           "image": {
             "type": "string",
             "format": "binary"
-          },
-          "task_type": {
-            "type": "string",
-            "description": "Backward-compatible field accepted but ignored by Unlimited-OCR inference."
-          },
-          "task_prompt": {
-            "type": "string",
-            "description": "Backward-compatible field accepted but ignored by Unlimited-OCR inference."
           },
           "text_input": {
             "type": "string",

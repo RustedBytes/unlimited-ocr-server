@@ -68,8 +68,6 @@ fn job_record(input_kind: &str, image_path: PathBuf) -> JobRecord {
         image_bytes: 0,
         input_kind: input_kind.to_string(),
         source_path: None,
-        task_type: "Single task".to_string(),
-        task_prompt: "OCR".to_string(),
         text_input: None,
         webhook_url: None,
         result: None,
