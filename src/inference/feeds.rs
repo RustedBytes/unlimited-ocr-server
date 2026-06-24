@@ -207,15 +207,131 @@ pub(super) fn collect_present_cache(
     outputs: &mut SessionOutputs<'_>,
     metadata: &KvCacheMetadata,
 ) -> anyhow::Result<KvCache> {
+    collect_present_cache_with_limit(outputs, metadata, None)
+}
+
+pub(super) fn collect_present_cache_trimmed(
+    outputs: &mut SessionOutputs<'_>,
+    metadata: &KvCacheMetadata,
+    sequence_len: usize,
+) -> anyhow::Result<KvCache> {
+    collect_present_cache_with_limit(outputs, metadata, Some(sequence_len))
+}
+
+fn collect_present_cache_with_limit(
+    outputs: &mut SessionOutputs<'_>,
+    metadata: &KvCacheMetadata,
+    sequence_len: Option<usize>,
+) -> anyhow::Result<KvCache> {
     let mut values = Vec::with_capacity(metadata.present_outputs.len());
     for name in &metadata.present_outputs {
         let value = outputs
             .remove(name)
             .ok_or_else(|| anyhow!("ONNX output `{name}` is missing"))?;
-        values.push(value);
+        values.push(match sequence_len {
+            Some(sequence_len) => trim_cache_tensor(value, name, sequence_len)?,
+            None => value,
+        });
     }
 
     Ok(KvCache { values })
+}
+
+fn trim_cache_tensor(value: DynValue, name: &str, sequence_len: usize) -> anyhow::Result<DynValue> {
+    match value.dtype() {
+        ValueType::Tensor {
+            ty: TensorElementType::Float32,
+            ..
+        } => trim_typed_cache_tensor::<f32>(&value, name, sequence_len),
+        ValueType::Tensor {
+            ty: TensorElementType::Float16,
+            ..
+        } => trim_typed_cache_tensor::<f16>(&value, name, sequence_len),
+        ValueType::Tensor {
+            ty: TensorElementType::Bfloat16,
+            ..
+        } => trim_typed_cache_tensor::<bf16>(&value, name, sequence_len),
+        other => Err(anyhow!(
+            "cache tensor `{name}` has unsupported dtype: {other:?}"
+        )),
+    }
+}
+
+fn trim_typed_cache_tensor<
+    T: Copy
+        + ort::value::IntoTensorElementType
+        + ort::value::PrimitiveTensorElementType
+        + std::fmt::Debug
+        + 'static,
+>(
+    value: &DynValue,
+    name: &str,
+    sequence_len: usize,
+) -> anyhow::Result<DynValue> {
+    let (shape, data) = value
+        .try_extract_tensor::<T>()
+        .map_err(|err| anyhow!("cache tensor `{name}` extraction failed: {err}"))?;
+    let shape_values = shape.iter().copied().collect::<Vec<_>>();
+    if shape_values.len() != 4 {
+        return Err(anyhow!(
+            "cache tensor `{name}` has invalid shape {shape_values:?}"
+        ));
+    }
+
+    let batch = usize::try_from(shape_values[0])
+        .map_err(|_| anyhow!("cache tensor `{name}` batch dimension is invalid"))?;
+    let heads = usize::try_from(shape_values[1])
+        .map_err(|_| anyhow!("cache tensor `{name}` heads dimension is invalid"))?;
+    let total_sequence = usize::try_from(shape_values[2])
+        .map_err(|_| anyhow!("cache tensor `{name}` sequence dimension is invalid"))?;
+    let head_dim = usize::try_from(shape_values[3])
+        .map_err(|_| anyhow!("cache tensor `{name}` head dimension is invalid"))?;
+
+    if sequence_len > total_sequence {
+        return Err(anyhow!(
+            "cache tensor `{name}` has sequence length {total_sequence}, cannot trim to {sequence_len}"
+        ));
+    }
+
+    let stride = total_sequence
+        .checked_mul(head_dim)
+        .ok_or_else(|| anyhow!("cache tensor `{name}` shape is too large"))?;
+    let trimmed_stride = sequence_len
+        .checked_mul(head_dim)
+        .ok_or_else(|| anyhow!("cache tensor `{name}` shape is too large"))?;
+    let mut trimmed = Vec::with_capacity(
+        batch
+            .checked_mul(heads)
+            .and_then(|value| value.checked_mul(trimmed_stride))
+            .ok_or_else(|| anyhow!("cache tensor `{name}` shape is too large"))?,
+    );
+
+    for batch_idx in 0..batch {
+        for head_idx in 0..heads {
+            let start = (batch_idx
+                .checked_mul(heads)
+                .and_then(|value| value.checked_add(head_idx))
+                .ok_or_else(|| anyhow!("cache tensor `{name}` shape is too large"))?)
+            .checked_mul(stride)
+            .ok_or_else(|| anyhow!("cache tensor `{name}` shape is too large"))?;
+            let end = start
+                .checked_add(trimmed_stride)
+                .ok_or_else(|| anyhow!("cache tensor `{name}` shape is too large"))?;
+            trimmed.extend_from_slice(data.get(start..end).ok_or_else(|| {
+                anyhow!("cache tensor `{name}` data length does not match shape {shape_values:?}")
+            })?);
+        }
+    }
+
+    let trimmed_shape = Shape::from([
+        shape_values[0],
+        shape_values[1],
+        sequence_len as i64,
+        shape_values[3],
+    ]);
+    Ok(Tensor::<T>::from_array((trimmed_shape, trimmed))
+        .map_err(|err| anyhow!("failed to create trimmed cache tensor `{name}`: {err}"))?
+        .into_dyn())
 }
 
 fn append_input_ids(
@@ -479,4 +595,30 @@ pub(super) fn prepare_bool_for_test(
         pad_value: false,
         input_name: "images_seq_mask",
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use ort::value::{DynValue, Tensor};
+
+    use super::trim_cache_tensor;
+
+    #[test]
+    fn trims_cache_tensor_sequence_axis() {
+        let value: DynValue = Tensor::<f32>::from_array((
+            [1_usize, 2, 4, 2],
+            vec![
+                0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0,
+                15.0,
+            ],
+        ))
+        .unwrap()
+        .into_dyn();
+
+        let trimmed = trim_cache_tensor(value, "present.0.key", 2).unwrap();
+        let (shape, data) = trimmed.try_extract_tensor::<f32>().unwrap();
+
+        assert_eq!(shape.iter().copied().collect::<Vec<_>>(), vec![1, 2, 2, 2]);
+        assert_eq!(data, &[0.0, 1.0, 2.0, 3.0, 8.0, 9.0, 10.0, 11.0]);
+    }
 }

@@ -26,8 +26,8 @@ use crate::{
 use self::{
     feeds::{
         DecodeFeedInputs, DecodeInputMetadata, FeedInputs, InputMetadata, KvCache,
-        collect_present_cache, inspect_decode_input_metadata, inspect_input_metadata,
-        make_decode_feeds, make_feeds, validate_image_size,
+        collect_present_cache, collect_present_cache_trimmed, inspect_decode_input_metadata,
+        inspect_input_metadata, make_decode_feeds, make_feeds, validate_image_size,
     },
     image::{decode_image_with_orientation, preprocess_image},
     model::{load_session, tokenizer_path_for_model},
@@ -476,7 +476,11 @@ impl UnlimitedOcrWorker {
             .get("logits")
             .ok_or_else(|| anyhow!("ONNX output `logits` is missing"))?;
         let next_token_id = argmax_token_from_output_at_position(logits, "logits", position)?;
-        let cache = collect_present_cache(&mut outputs, &self.input_metadata.kv_cache)?;
+        let cache = collect_present_cache_trimmed(
+            &mut outputs,
+            &self.input_metadata.kv_cache,
+            state.input_ids.len(),
+        )?;
         Ok((next_token_id, cache))
     }
 
