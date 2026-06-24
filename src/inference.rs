@@ -192,20 +192,72 @@ impl UnlimitedOcrWorker {
             image_path.display()
         );
 
+        let image_started = Instant::now();
         let (image_array, original_width, original_height) = self.prepare_image(image_path)?;
+        let image_elapsed_ms = image_started.elapsed().as_millis();
+        info!(
+            "Unlimited-OCR inference stage finished worker_id={} stage=image_prepare original_width={} original_height={} processed_width={} processed_height={} elapsed_ms={}",
+            self.id,
+            original_width,
+            original_height,
+            self.image_size,
+            self.image_size,
+            image_elapsed_ms
+        );
+
+        let prompt_started = Instant::now();
         let prompt_inputs = build_image_prompt(&self.tokenizer, &prompt, self.image_size)?;
+        let prompt_tokens = prompt_inputs.input_ids.len();
+        info!(
+            "Unlimited-OCR inference stage finished worker_id={} stage=prompt_build prompt_tokens={} image_tokens={} elapsed_ms={}",
+            self.id,
+            prompt_tokens,
+            prompt_inputs
+                .images_seq_mask
+                .iter()
+                .filter(|value| **value)
+                .count(),
+            prompt_started.elapsed().as_millis()
+        );
+
+        let generation_started = Instant::now();
         let generated_ids = self.generate(GenerationState::new(prompt_inputs, &image_array))?;
+        let generation_elapsed_ms = generation_started.elapsed().as_millis();
+        info!(
+            "Unlimited-OCR inference stage finished worker_id={} stage=generation generated_tokens={} elapsed_ms={} tokens_per_second={:.3}",
+            self.id,
+            generated_ids.len(),
+            generation_elapsed_ms,
+            tokens_per_second(generated_ids.len(), generation_elapsed_ms)
+        );
+
+        let text_decode_started = Instant::now();
         let generated_text = decode_generated_text(&self.tokenizer, &generated_ids)?;
+        info!(
+            "Unlimited-OCR inference stage finished worker_id={} stage=text_decode generated_chars={} elapsed_ms={}",
+            self.id,
+            generated_text.chars().count(),
+            text_decode_started.elapsed().as_millis()
+        );
+
+        let metadata_started = Instant::now();
         let generation = generation_metadata(prompt, generated_text.clone(), generated_ids.len());
         let result = generation.result.clone();
+        info!(
+            "Unlimited-OCR inference stage finished worker_id={} stage=result_parse elapsed_ms={}",
+            self.id,
+            metadata_started.elapsed().as_millis()
+        );
         let elapsed_ms = total_started.elapsed().as_millis();
 
         info!(
-            "Unlimited-OCR generation finished worker_id={} model_variant={} generated_tokens={} elapsed_ms={}",
+            "Unlimited-OCR generation finished worker_id={} model_variant={} generated_tokens={} prompt_tokens={} elapsed_ms={} tokens_per_second={:.3}",
             self.id,
             self.model_variant.as_str(),
             generated_ids.len(),
-            elapsed_ms
+            prompt_tokens,
+            elapsed_ms,
+            tokens_per_second(generated_ids.len(), elapsed_ms)
         );
 
         Ok(InferenceMetadata {
@@ -257,9 +309,21 @@ impl UnlimitedOcrWorker {
 
     fn generate(&mut self, mut state: GenerationState<'_>) -> anyhow::Result<Vec<i64>> {
         if self.can_generate_with_kv_cache() {
+            info!(
+                "Unlimited-OCR generation mode selected worker_id={} mode=kv_cache prompt_tokens={} max_new_tokens={}",
+                self.id,
+                state.input_ids.len(),
+                self.max_new_tokens
+            );
             return self.generate_with_kv_cache(state);
         }
 
+        info!(
+            "Unlimited-OCR generation mode selected worker_id={} mode=full_sequence prompt_tokens={} max_new_tokens={}",
+            self.id,
+            state.input_ids.len(),
+            self.max_new_tokens
+        );
         let mut generated = Vec::new();
         let max_steps = generation_step_limit(
             state.input_ids.len(),
@@ -277,6 +341,7 @@ impl UnlimitedOcrWorker {
             );
         }
 
+        let generation_started = Instant::now();
         for _ in 0..max_steps {
             let position = state
                 .input_ids
@@ -293,6 +358,15 @@ impl UnlimitedOcrWorker {
                 break;
             }
         }
+
+        let elapsed_ms = generation_started.elapsed().as_millis();
+        info!(
+            "Unlimited-OCR generation stage finished worker_id={} mode=full_sequence generated_tokens={} elapsed_ms={} tokens_per_second={:.3}",
+            self.id,
+            generated.len(),
+            elapsed_ms,
+            tokens_per_second(generated.len(), elapsed_ms)
+        );
 
         Ok(generated)
     }
@@ -323,12 +397,21 @@ impl UnlimitedOcrWorker {
             .len()
             .checked_sub(1)
             .ok_or_else(|| anyhow!("input_ids cannot be empty"))?;
+        let prefill_started = Instant::now();
         let (mut next_token_id, mut cache) = self.run_prefill_model(&state, position)?;
+        let prefill_elapsed_ms = prefill_started.elapsed().as_millis();
+        info!(
+            "Unlimited-OCR generation stage finished worker_id={} mode=kv_cache stage=prefill prompt_tokens={} elapsed_ms={}",
+            self.id,
+            state.input_ids.len(),
+            prefill_elapsed_ms
+        );
 
         state.input_ids.push(next_token_id);
         state.images_seq_mask.push(false);
         generated.push(next_token_id);
 
+        let decode_started = Instant::now();
         while generated.len() < self.max_new_tokens && next_token_id != EOS_TOKEN_ID {
             let position = state
                 .input_ids
@@ -344,6 +427,24 @@ impl UnlimitedOcrWorker {
             state.images_seq_mask.push(false);
             generated.push(next_token_id);
         }
+        let decode_elapsed_ms = decode_started.elapsed().as_millis();
+
+        info!(
+            "Unlimited-OCR generation stage finished worker_id={} mode=kv_cache stage=decode decode_tokens={} elapsed_ms={} tokens_per_second={:.3}",
+            self.id,
+            generated.len().saturating_sub(1),
+            decode_elapsed_ms,
+            tokens_per_second(generated.len().saturating_sub(1), decode_elapsed_ms)
+        );
+
+        let total_elapsed_ms = prefill_elapsed_ms + decode_elapsed_ms;
+        info!(
+            "Unlimited-OCR generation stage finished worker_id={} mode=kv_cache stage=total generated_tokens={} elapsed_ms={} tokens_per_second={:.3}",
+            self.id,
+            generated.len(),
+            total_elapsed_ms,
+            tokens_per_second(generated.len(), total_elapsed_ms)
+        );
 
         Ok(generated)
     }
@@ -498,6 +599,14 @@ fn cache_input_error(err: anyhow::Error) -> anyhow::Error {
     } else {
         err
     }
+}
+
+fn tokens_per_second(tokens: usize, elapsed_ms: u128) -> f64 {
+    if tokens == 0 || elapsed_ms == 0 {
+        return 0.0;
+    }
+
+    tokens as f64 / (elapsed_ms as f64 / 1000.0)
 }
 
 impl<'a> GenerationState<'a> {
