@@ -24,7 +24,7 @@ ignore_findings = [
     # add access indirection across startup, API, queue, and worker code without
     # making invalid states more precise.
     "Q0026",
-    # TaskPrompt mirrors Florence's finite public task vocabulary. The wide enum
+    # TaskPrompt mirrors server's finite public task vocabulary. The wide enum
     # is intentional so unsupported prompts remain unrepresentable internally.
     "Q0017",
     # Tiny helper inlining and short fluent crypto builders are style noise.
