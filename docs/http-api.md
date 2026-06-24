@@ -74,14 +74,14 @@ Local-path inference is disabled by default. Enable `server.allow_local_paths` a
 }
 ```
 
-Webhook requests include legacy `x-florence-*` header names for compatibility:
+Webhook requests include legacy `x-server-*` header names for compatibility:
 
-- `x-florence-event-id`: stable for all attempts for the same event
-- `x-florence-event-type`: currently `job.completed`
-- `x-florence-delivery-attempt`: one-based attempt number
-- `x-florence-signature`: `sha256=<hex-hmac>` when `generation.webhook_signing_secret` is configured
+- `x-server-event-id`: stable for all attempts for the same event
+- `x-server-event-type`: currently `job.completed`
+- `x-server-delivery-attempt`: one-based attempt number
+- `x-server-signature`: `sha256=<hex-hmac>` when `generation.webhook_signing_secret` is configured
 
-Webhook receivers should treat `x-florence-event-id` as the idempotency key and ignore duplicate events that were already processed. Failed callbacks are retried according to `generation.webhook_max_attempts`; final failures are appended to `data/metadata/webhooks_dead_letter.jsonl`. Webhook delivery does not change the job result.
+Webhook receivers should treat `x-server-event-id` as the idempotency key and ignore duplicate events that were already processed. Failed callbacks are retried according to `generation.webhook_max_attempts`; final failures are appended to `data/metadata/webhooks_dead_letter.jsonl`. Webhook delivery does not change the job result.
 
 Check job:
 

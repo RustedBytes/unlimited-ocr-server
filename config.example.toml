@@ -65,7 +65,7 @@ webhook_max_attempts = 1
 webhook_initial_backoff_ms = 500
 
 # Empty by default, which disables webhook HMAC signatures.
-# When set, webhooks include legacy `x-florence-signature: sha256=<hex-hmac>`.
+# When set, webhooks include legacy `x-server-signature: sha256=<hex-hmac>`.
 webhook_signing_secret = ""
 
 # Keep false unless this service runs in a trusted network and must call private webhook targets.

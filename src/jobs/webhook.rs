@@ -74,13 +74,13 @@ impl WebhookClient {
             .http
             .post(webhook_url)
             .header(reqwest::header::CONTENT_TYPE, "application/json")
-            .header("x-florence-event-id", event.event_id.to_string())
-            .header("x-florence-event-type", event.event_type)
-            .header("x-florence-delivery-attempt", attempt.to_string())
+            .header("x-server-event-id", event.event_id.to_string())
+            .header("x-server-event-type", event.event_type)
+            .header("x-server-delivery-attempt", attempt.to_string())
             .body(body.clone());
         if let Some(secret) = &self.signing_secret {
             request = request.header(
-                "x-florence-signature",
+                "x-server-signature",
                 format!("sha256={}", hmac_sha256_hex(secret, &body)),
             );
         }

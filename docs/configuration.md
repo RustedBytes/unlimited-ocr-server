@@ -178,6 +178,6 @@ Jobs are marked failed if inference exceeds `generation.job_timeout_seconds`. A 
 
 Webhook delivery uses `generation.webhook_timeout_seconds` for the full request and `generation.webhook_connect_timeout_seconds` for establishing the connection. Failed webhook deliveries retry up to `generation.webhook_max_attempts` times with exponential backoff starting at `generation.webhook_initial_backoff_ms`. Final failures are appended to `data/metadata/webhooks_dead_letter.jsonl`. Webhook failures are logged and do not change the completed job result.
 
-When `generation.webhook_signing_secret` is set, webhook requests include the legacy compatibility header `x-florence-signature: sha256=<hex-hmac>`, computed over the exact JSON request body. Webhook requests also include `x-florence-event-id`, `x-florence-event-type`, and `x-florence-delivery-attempt`.
+When `generation.webhook_signing_secret` is set, webhook requests include the legacy compatibility header `x-server-signature: sha256=<hex-hmac>`, computed over the exact JSON request body. Webhook requests also include `x-server-event-id`, `x-server-event-type`, and `x-server-delivery-attempt`.
 
 For SSRF protection, webhook URLs reject credentials, fragments, localhost, and literal private/local IP addresses by default. Redirects are not followed. If private webhook targets are required in a trusted network, set `generation.allow_private_webhook_urls = true`.

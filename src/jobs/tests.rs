@@ -221,9 +221,9 @@ async fn post_webhook_sends_final_job_record() {
     assert_eq!(body["job"]["id"], record.id.to_string());
     assert_eq!(body["job"]["status"], "succeeded");
     assert_eq!(body["job"]["webhook_url"], url);
-    assert!(request.contains("x-florence-event-id:"));
-    assert!(request.contains("x-florence-delivery-attempt: 1"));
-    assert!(request.contains("x-florence-signature: sha256="));
+    assert!(request.contains("x-server-event-id:"));
+    assert!(request.contains("x-server-delivery-attempt: 1"));
+    assert!(request.contains("x-server-signature: sha256="));
 }
 
 #[test]
@@ -303,8 +303,8 @@ async fn webhook_delivery_retries_with_same_event_id() {
     ));
     assert_eq!(requests.len(), 2);
     assert_eq!(
-        header_value(&requests[0], "x-florence-event-id"),
-        header_value(&requests[1], "x-florence-event-id")
+        header_value(&requests[0], "x-server-event-id"),
+        header_value(&requests[1], "x-server-event-id")
     );
     assert!(!config.webhooks_dead_letter_jsonl.exists());
 
