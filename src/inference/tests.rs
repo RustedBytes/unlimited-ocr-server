@@ -2,6 +2,7 @@ use image::{DynamicImage, Rgb, RgbImage};
 use tokenizers::Tokenizer;
 
 use super::{
+    backend_summary,
     feeds::{kv_cache_metadata_for_test, prepare_bool_for_test, prepare_i64_for_test},
     generation_step_limit,
     image::preprocess_image,
@@ -152,6 +153,31 @@ fn cuda_provider_is_feature_gated() {
     let dispatches = execution_provider_dispatches(&providers);
 
     assert_eq!(dispatches.len(), usize::from(cfg!(feature = "cuda")));
+}
+
+#[test]
+fn backend_summary_keeps_requested_providers_separate_from_reported_devices() {
+    let providers = vec!["cuda".to_string(), "cpu".to_string()];
+    let devices = vec!["CPUExecutionProvider:CPU".to_string()];
+
+    let got = backend_summary(&providers, &devices);
+
+    assert_eq!(
+        got,
+        "ort:requested_execution_providers=cuda,cpu;reported_devices=CPUExecutionProvider:CPU"
+    );
+}
+
+#[test]
+fn backend_summary_handles_empty_reported_devices() {
+    let providers = vec!["auto".to_string()];
+
+    let got = backend_summary(&providers, &[]);
+
+    assert_eq!(
+        got,
+        "ort:requested_execution_providers=auto;reported_devices=none"
+    );
 }
 
 fn test_tokenizer() -> Tokenizer {

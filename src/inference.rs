@@ -136,7 +136,7 @@ impl UnlimitedOcrWorker {
             session: Some(session),
             decode_session,
             tokenizer,
-            backend: format!("ort:auto:max_performance:{}", devices.join(",")),
+            backend: backend_summary(&config.execution_providers, &devices),
             input_metadata,
             decode_input_metadata,
             max_new_tokens: config.max_new_tokens,
@@ -635,7 +635,10 @@ fn detected_devices(worker_id: usize) -> anyhow::Result<Vec<String>> {
         .collect::<Vec<_>>();
 
     if devices.is_empty() {
-        warn!("ONNX Runtime did not report accelerator devices; CPU fallback will be used");
+        warn!(
+            "ONNX Runtime did not report devices worker_id={}; backend metadata will include requested execution providers only",
+            worker_id
+        );
     } else {
         info!(
             "ONNX Runtime detected devices worker_id={} devices={:?}",
@@ -644,6 +647,21 @@ fn detected_devices(worker_id: usize) -> anyhow::Result<Vec<String>> {
     }
 
     Ok(devices)
+}
+
+fn backend_summary(execution_providers: &[String], reported_devices: &[String]) -> String {
+    let requested = if execution_providers.is_empty() {
+        "auto".to_string()
+    } else {
+        execution_providers.join(",")
+    };
+    let devices = if reported_devices.is_empty() {
+        "none".to_string()
+    } else {
+        reported_devices.join(",")
+    };
+
+    format!("ort:requested_execution_providers={requested};reported_devices={devices}")
 }
 
 fn load_decode_session(

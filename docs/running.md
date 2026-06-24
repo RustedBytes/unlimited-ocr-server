@@ -48,6 +48,27 @@ podman run --rm \
   unlimited-ocr-server
 ```
 
+The local GPU helper forwards runtime overrides, so provider experiments can be
+run without editing TOML:
+
+```bash
+MODEL_PATH=Unlimited-OCR/onnx/unlimited_ocr_prefill.onnx \
+DECODE_MODEL_PATH=Unlimited-OCR/onnx/unlimited_ocr_decode.onnx \
+EXECUTION_PROVIDERS=cuda,cpu \
+bash run_podman.sh
+```
+
+To compare CPU and CUDA on the same input image, build the GPU image first and
+run:
+
+```bash
+IMAGE_PATH=/path/to/image.jpg scripts/compare_execution_providers.sh
+```
+
+The script starts one temporary container per provider, submits the image,
+polls the job, and prints elapsed time plus token throughput. Logs and JSON
+responses are written under `target/provider-benchmarks/`.
+
 ## Compose
 
 Build and run with Compose:
