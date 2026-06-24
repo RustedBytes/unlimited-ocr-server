@@ -5,6 +5,27 @@ use serde_json::Value;
 
 use crate::config::ModelVariant;
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OcrResult {
+    pub text: String,
+    pub detections: Vec<OcrDetection>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OcrDetection {
+    pub label: String,
+    pub bbox: BoundingBox,
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BoundingBox {
+    pub x_min: i64,
+    pub y_min: i64,
+    pub x_max: i64,
+    pub y_max: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InferenceMetadata {
     pub backend: String,

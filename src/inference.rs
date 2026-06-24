@@ -1,6 +1,7 @@
 mod feeds;
 mod image;
 mod model;
+mod parse;
 mod prompt;
 mod tensor;
 
@@ -26,6 +27,7 @@ use self::{
     feeds::{FeedInputs, InputMetadata, inspect_input_metadata, make_feeds, validate_image_size},
     image::{decode_image_with_orientation, preprocess_image},
     model::{load_session, tokenizer_path_for_model},
+    parse::parse_ocr_result,
     prompt::{
         EOS_TOKEN_ID, PromptInputs, build_image_prompt, decode_generated_text, prompt_from_task,
     },
@@ -372,10 +374,11 @@ fn generation_metadata(
     generated_text: String,
     generated_tokens: usize,
 ) -> GenerationMetadata {
+    let result = parse_ocr_result(&generated_text);
     GenerationMetadata {
         task_token: TASK_TOKEN.to_string(),
         prompt_text,
-        result: json!({ "text": generated_text }),
+        result: json!(result),
         generated_text,
         generated_tokens,
     }
