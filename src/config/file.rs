@@ -62,6 +62,7 @@ pub(super) struct ServerConfig {
 pub(super) struct ModelConfig {
     pub(super) variant: Option<String>,
     pub(super) path: Option<PathBuf>,
+    pub(super) decode_path: Option<PathBuf>,
     pub(super) image_size: Option<u32>,
 }
 

@@ -3,7 +3,10 @@ mod file;
 mod model_variant;
 mod settings;
 
-use std::{net::SocketAddr, path::PathBuf};
+use std::{
+    net::SocketAddr,
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Context, anyhow};
 use log::debug;
@@ -32,6 +35,7 @@ pub use self::model_variant::ModelVariant;
 pub struct Config {
     pub addr: SocketAddr,
     pub model_path: PathBuf,
+    pub decode_model_path: Option<PathBuf>,
     pub model_variant: ModelVariant,
     pub model_image_size: u32,
     pub data_dir: PathBuf,
@@ -105,6 +109,7 @@ impl Config {
         };
         let model_variant = parse_model_variant(model.variant, model_path_selection)?;
         let model_path = model_path_override.unwrap_or_else(|| model_variant.default_model_path());
+        let decode_model_path = decode_model_path_setting(&model_path, model.decode_path);
         let addr = string_setting(
             SettingSource::new("BIND_ADDR", server.bind_addr),
             DEFAULT_ADDR,
@@ -115,6 +120,7 @@ impl Config {
         Ok(Self {
             addr,
             model_path,
+            decode_model_path,
             model_variant,
             model_image_size: u32_setting(
                 SettingSource::new("MODEL_IMAGE_SIZE", model.image_size),
@@ -235,6 +241,14 @@ impl Config {
                 self.model_path.display()
             ));
         }
+        if let Some(decode_model_path) = &self.decode_model_path
+            && !decode_model_path.exists()
+        {
+            return Err(anyhow!(
+                "decode model file does not exist: {}",
+                decode_model_path.display()
+            ));
+        }
         debug!(
             "ensuring data directories images_dir={} metadata_dir={}",
             self.images_dir.display(),
@@ -244,6 +258,23 @@ impl Config {
         fs::create_dir_all(&self.metadata_dir).await?;
         Ok(())
     }
+}
+
+fn decode_model_path_setting(model_path: &Path, file_value: Option<PathBuf>) -> Option<PathBuf> {
+    env_path("DECODE_MODEL_PATH")
+        .or(file_value)
+        .or_else(|| inferred_decode_model_path(model_path))
+}
+
+fn inferred_decode_model_path(model_path: &Path) -> Option<PathBuf> {
+    let file_name = model_path.file_name()?.to_str()?;
+    if !file_name.contains("prefill") {
+        return None;
+    }
+
+    let decode_file_name = file_name.replacen("prefill", "decode", 1);
+    let decode_path = model_path.with_file_name(decode_file_name);
+    decode_path.exists().then_some(decode_path)
 }
 
 fn default_worker_count() -> usize {

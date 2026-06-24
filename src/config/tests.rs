@@ -114,6 +114,7 @@ rate_limit_requests_per_minute = 120
 [model]
 variant = "unlimited_ocr"
 image_size = 768
+decode_path = "Unlimited-OCR/onnx/unlimited_ocr_decode.onnx"
 
 [queue]
 model_pool_size = 2
@@ -166,6 +167,12 @@ rust_log = "debug"
     assert_eq!(server.rate_limit_requests_per_minute, Some(120));
     assert_eq!(model.variant.as_deref(), Some("unlimited_ocr"));
     assert_eq!(model.image_size, Some(768));
+    assert_eq!(
+        model.decode_path,
+        Some(PathBuf::from(
+            "Unlimited-OCR/onnx/unlimited_ocr_decode.onnx"
+        ))
+    );
     assert_eq!(queue.model_pool_size, Some(2));
     assert_eq!(queue.queue_size, Some(8));
     assert_eq!(queue.body_limit_bytes, Some(4096));
@@ -190,6 +197,21 @@ rust_log = "debug"
         Some(vec!["coreml-gpu".to_string(), "xnnpack".to_string()])
     );
     assert_eq!(logging.rust_log.as_deref(), Some("debug"));
+}
+
+#[test]
+fn infers_decode_model_path_from_prefill_sibling() {
+    let root = unique_temp_path("onnx");
+    fs::create_dir_all(&root).unwrap();
+    let prefill_path = root.join("unlimited_ocr_prefill.onnx");
+    let decode_path = root.join("unlimited_ocr_decode.onnx");
+    fs::write(&prefill_path, b"prefill").unwrap();
+    fs::write(&decode_path, b"decode").unwrap();
+
+    let got = inferred_decode_model_path(&prefill_path);
+
+    assert_eq!(got, Some(decode_path));
+    fs::remove_dir_all(root).unwrap();
 }
 
 fn unique_temp_path(name: &str) -> PathBuf {

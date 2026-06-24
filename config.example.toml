@@ -25,6 +25,11 @@ image_size = 1024
 # Optional explicit ONNX path. When set, this overrides variant path selection.
 # path = "Unlimited-OCR/onnx/unlimited_ocr.onnx"
 
+# Optional text decode ONNX path for KV-cache generation. When omitted and
+# `path` contains "prefill", the server auto-detects a sibling path with
+# "prefill" replaced by "decode" if that file exists.
+# decode_path = "Unlimited-OCR/onnx/unlimited_ocr_decode.onnx"
+
 [queue]
 model_pool_size = 1
 queue_size = 128

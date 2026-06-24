@@ -14,6 +14,10 @@ if [ -n "${MODEL_PATH:-}" ]; then
   env_args+=(-e MODEL_PATH="$MODEL_PATH")
 fi
 
+if [ -n "${DECODE_MODEL_PATH:-}" ]; then
+  env_args+=(-e DECODE_MODEL_PATH="$DECODE_MODEL_PATH")
+fi
+
 if [ -n "${CONFIG_PATH:-}" ]; then
   env_args+=(-e CONFIG_PATH="$CONFIG_PATH")
 fi

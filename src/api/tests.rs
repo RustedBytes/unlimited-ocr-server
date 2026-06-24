@@ -366,6 +366,7 @@ fn test_state(allow_local_paths: bool, local_path_roots: Vec<PathBuf>) -> AppSta
         config: Arc::new(Config {
             addr: SocketAddr::from(([127, 0, 0, 1], 3000)),
             model_path: PathBuf::from("Unlimited-OCR/onnx/unlimited_ocr.onnx"),
+            decode_model_path: None,
             model_variant: ModelVariant::UnlimitedOcr,
             model_image_size: 1024,
             data_dir: PathBuf::from("data"),

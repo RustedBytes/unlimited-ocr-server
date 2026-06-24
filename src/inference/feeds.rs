@@ -3,8 +3,9 @@ use std::{borrow::Cow, collections::HashSet};
 use anyhow::anyhow;
 use half::{bf16, f16};
 use ort::{
+    session::SessionOutputs,
     session::{Session, SessionInputValue},
-    value::{Shape, Tensor, TensorElementType, ValueType},
+    value::{DynValue, Shape, Tensor, TensorElementType, ValueType},
 };
 
 type FeedValues = Vec<(Cow<'static, str>, SessionInputValue<'static>)>;
@@ -18,16 +19,33 @@ pub(super) struct InputMetadata {
     fixed_image_size: Option<u32>,
 }
 
+#[derive(Debug, Clone)]
+pub(super) struct DecodeInputMetadata {
+    pub(super) names: HashSet<String>,
+    pub(super) kv_cache: KvCacheMetadata,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct KvCacheMetadata {
     past_inputs: Vec<String>,
     present_outputs: Vec<String>,
 }
 
+#[derive(Debug)]
+pub(super) struct KvCache {
+    values: Vec<DynValue>,
+}
+
 pub(super) struct FeedInputs<'a> {
     pub(super) input_ids: &'a [i64],
     pub(super) images_seq_mask: &'a [bool],
     pub(super) image_array: &'a [f32],
+}
+
+pub(super) struct DecodeFeedInputs {
+    pub(super) input_id: i64,
+    pub(super) position_id: i64,
+    pub(super) cache: KvCache,
 }
 
 struct PadRequest<'a, T> {
@@ -93,6 +111,33 @@ pub(super) fn inspect_input_metadata(session: &Session) -> anyhow::Result<InputM
     })
 }
 
+pub(super) fn inspect_decode_input_metadata(
+    session: &Session,
+) -> anyhow::Result<DecodeInputMetadata> {
+    let names = session
+        .inputs()
+        .iter()
+        .map(|input| input.name().to_string())
+        .collect::<HashSet<_>>();
+    let past_inputs = session
+        .inputs()
+        .iter()
+        .filter(|input| is_past_cache_name(input.name()))
+        .map(|input| input.name().to_string())
+        .collect();
+    let present_outputs = session
+        .outputs()
+        .iter()
+        .filter(|output| is_present_cache_name(output.name()))
+        .map(|output| output.name().to_string())
+        .collect();
+
+    Ok(DecodeInputMetadata {
+        names,
+        kv_cache: KvCacheMetadata::new(past_inputs, present_outputs),
+    })
+}
+
 pub(super) fn validate_image_size(metadata: &InputMetadata, configured: u32) -> anyhow::Result<()> {
     if let Some(expected) = metadata.fixed_image_size
         && expected != configured
@@ -118,6 +163,59 @@ pub(super) fn make_feeds(
     append_image_sequence_mask(&mut feeds, metadata, inputs.images_seq_mask)?;
     append_spatial_crop(&mut feeds, metadata)?;
     Ok(feeds)
+}
+
+pub(super) fn make_decode_feeds(
+    metadata: &DecodeInputMetadata,
+    inputs: DecodeFeedInputs,
+) -> anyhow::Result<FeedValues> {
+    let mut feeds = Vec::new();
+    if metadata.names.contains("input_ids") {
+        feeds.push((
+            "input_ids".into(),
+            Tensor::<i64>::from_array((sequence_shape(1), vec![inputs.input_id]))
+                .map_err(|err| anyhow!("failed to create decode input_ids tensor: {err}"))?
+                .into(),
+        ));
+    }
+    if metadata.names.contains("position_ids") {
+        feeds.push((
+            "position_ids".into(),
+            Tensor::<i64>::from_array((sequence_shape(1), vec![inputs.position_id]))
+                .map_err(|err| anyhow!("failed to create position_ids tensor: {err}"))?
+                .into(),
+        ));
+    }
+
+    let past_inputs = metadata.kv_cache.past_inputs();
+    if past_inputs.len() != inputs.cache.values.len() {
+        return Err(anyhow!(
+            "decode graph expects {} cache tensors, but runtime has {}",
+            past_inputs.len(),
+            inputs.cache.values.len()
+        ));
+    }
+
+    for (name, value) in past_inputs.iter().zip(inputs.cache.values) {
+        feeds.push((name.clone().into(), value.into()));
+    }
+
+    Ok(feeds)
+}
+
+pub(super) fn collect_present_cache(
+    outputs: &mut SessionOutputs<'_>,
+    metadata: &KvCacheMetadata,
+) -> anyhow::Result<KvCache> {
+    let mut values = Vec::with_capacity(metadata.present_outputs.len());
+    for name in &metadata.present_outputs {
+        let value = outputs
+            .remove(name)
+            .ok_or_else(|| anyhow!("ONNX output `{name}` is missing"))?;
+        values.push(value);
+    }
+
+    Ok(KvCache { values })
 }
 
 fn append_input_ids(
@@ -338,6 +436,18 @@ impl KvCacheMetadata {
 
     pub(super) fn is_supported(&self) -> bool {
         !self.past_inputs.is_empty() && self.past_inputs.len() == self.present_outputs.len()
+    }
+
+    pub(super) fn can_seed_decode_cache(&self, decode: &Self) -> bool {
+        !self.present_outputs.is_empty() && self.present_outputs.len() == decode.past_inputs.len()
+    }
+
+    pub(super) fn has_present_outputs(&self) -> bool {
+        !self.present_outputs.is_empty()
+    }
+
+    pub(super) fn past_inputs(&self) -> &[String] {
+        &self.past_inputs
     }
 
     pub(super) fn summary(&self) -> String {

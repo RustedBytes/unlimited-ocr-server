@@ -119,6 +119,7 @@ Environment variables override TOML values when set:
 - `MAX_IMAGE_HEIGHT`: maximum accepted image height before decode
 - `MODEL_VARIANT`: model variant
 - `MODEL_PATH`: explicit ONNX model path, overrides `MODEL_VARIANT` path selection
+- `DECODE_MODEL_PATH`: optional text decode ONNX path for KV-cache generation
 - `MODEL_IMAGE_SIZE`: square image tensor size, default `1024`
 - `MAX_NEW_TOKENS`: maximum decoder tokens per generation
 - `JOB_TIMEOUT_SECONDS`: per-job inference timeout; set to `0` to disable timeout enforcement

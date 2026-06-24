@@ -106,9 +106,14 @@ async fn serve(config: Arc<Config>, state: AppState) -> anyhow::Result<()> {
 
 fn log_loaded_config(config: &Config) {
     debug!(
-        "config loaded addr={} model_path={} model_variant={} model_image_size={} data_dir={} images_dir={} metadata_dir={} workers={} queue_size={} body_limit_bytes={} request_timeout_seconds={} api_key_auth_enabled={} rate_limit_requests_per_minute={} max_new_tokens={} job_timeout_seconds={} webhook_timeout_seconds={} webhook_connect_timeout_seconds={} webhook_max_attempts={} webhook_initial_backoff_ms={} webhook_signing_enabled={} allow_private_webhook_urls={} execution_providers={:?} rust_log={}",
+        "config loaded addr={} model_path={} decode_model_path={} model_variant={} model_image_size={} data_dir={} images_dir={} metadata_dir={} workers={} queue_size={} body_limit_bytes={} request_timeout_seconds={} api_key_auth_enabled={} rate_limit_requests_per_minute={} max_new_tokens={} job_timeout_seconds={} webhook_timeout_seconds={} webhook_connect_timeout_seconds={} webhook_max_attempts={} webhook_initial_backoff_ms={} webhook_signing_enabled={} allow_private_webhook_urls={} execution_providers={:?} rust_log={}",
         config.addr,
         config.model_path.display(),
+        config
+            .decode_model_path
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "none".to_string()),
         config.model_variant.as_str(),
         config.model_image_size,
         config.data_dir.display(),
@@ -135,10 +140,15 @@ fn log_loaded_config(config: &Config) {
 
 fn log_server_listening(config: &Config) {
     info!(
-        "server listening addr={} workers={} model={} model_variant={} model_image_size={} data_dir={} queue_size={} body_limit_bytes={} request_timeout_seconds={} api_key_auth_enabled={} rate_limit_requests_per_minute={} max_new_tokens={} job_timeout_seconds={} webhook_timeout_seconds={} webhook_connect_timeout_seconds={} webhook_max_attempts={} webhook_initial_backoff_ms={} webhook_signing_enabled={} allow_private_webhook_urls={} execution_providers={:?}",
+        "server listening addr={} workers={} model={} decode_model={} model_variant={} model_image_size={} data_dir={} queue_size={} body_limit_bytes={} request_timeout_seconds={} api_key_auth_enabled={} rate_limit_requests_per_minute={} max_new_tokens={} job_timeout_seconds={} webhook_timeout_seconds={} webhook_connect_timeout_seconds={} webhook_max_attempts={} webhook_initial_backoff_ms={} webhook_signing_enabled={} allow_private_webhook_urls={} execution_providers={:?}",
         config.addr,
         config.workers,
         config.model_path.display(),
+        config
+            .decode_model_path
+            .as_ref()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "none".to_string()),
         config.model_variant.as_str(),
         config.model_image_size,
         config.data_dir.display(),
