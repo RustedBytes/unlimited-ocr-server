@@ -76,6 +76,7 @@ impl Config {
         let logging = file_config.logging.unwrap_or_default();
         let retention = file_config.retention.unwrap_or_default();
         let validation = file_config.validation.unwrap_or_default();
+        let execution_providers = execution_providers_setting(runtime.execution_providers);
 
         let data_dir = path_setting(
             SettingSource::new("DATA_DIR", server.data_dir),
@@ -157,7 +158,7 @@ impl Config {
             data_dir,
             workers: usize_setting(
                 SettingSource::new("MODEL_POOL_SIZE", queue.model_pool_size),
-                default_worker_count(),
+                default_worker_count_for_execution_providers(&execution_providers),
             )?
             .max(1),
             queue_size: usize_setting(
@@ -223,7 +224,7 @@ impl Config {
                 ),
                 false,
             )?,
-            execution_providers: execution_providers_setting(runtime.execution_providers),
+            execution_providers,
         })
     }
 
@@ -250,6 +251,17 @@ fn default_worker_count() -> usize {
         .map(usize::from)
         .unwrap_or(1)
         .clamp(1, 4)
+}
+
+fn default_worker_count_for_execution_providers(execution_providers: &[String]) -> usize {
+    if execution_providers
+        .iter()
+        .any(|provider| provider.as_str() == "cuda")
+    {
+        1
+    } else {
+        default_worker_count()
+    }
 }
 
 #[cfg(test)]

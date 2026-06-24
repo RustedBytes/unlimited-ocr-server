@@ -44,6 +44,20 @@ fn normalizes_execution_provider_names() {
 }
 
 #[test]
+fn cuda_execution_provider_defaults_to_one_worker() {
+    let workers = default_worker_count_for_execution_providers(&["cuda".to_string()]);
+
+    assert_eq!(workers, 1);
+}
+
+#[test]
+fn cpu_execution_provider_uses_parallel_worker_default() {
+    let workers = default_worker_count_for_execution_providers(&["cpu".to_string()]);
+
+    assert!((1..=4).contains(&workers));
+}
+
+#[test]
 fn keeps_configured_cors_origins() {
     let origins = string_list_setting(
         "CORS_ALLOWED_ORIGINS_UNUSED_IN_TEST",

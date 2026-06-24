@@ -3,6 +3,7 @@ use tokenizers::Tokenizer;
 
 use super::{
     feeds::{prepare_bool_for_test, prepare_i64_for_test},
+    generation_step_limit,
     image::preprocess_image,
     model::execution_provider_dispatches,
     prompt::{
@@ -14,6 +15,37 @@ use super::{
 fn computes_unlimited_ocr_image_token_count() {
     assert_eq!(image_token_count(1024), 273);
     assert_eq!(image_token_count(640), 111);
+}
+
+#[test]
+fn fixed_sequence_length_caps_generation_steps() {
+    let got = generation_step_limit(274, 256, Some(512)).unwrap();
+
+    assert_eq!(got, 239);
+}
+
+#[test]
+fn fixed_sequence_length_allows_one_step_at_capacity() {
+    let got = generation_step_limit(512, 256, Some(512)).unwrap();
+
+    assert_eq!(got, 1);
+}
+
+#[test]
+fn rejects_initial_prompt_longer_than_fixed_sequence_length() {
+    let err = generation_step_limit(513, 256, Some(512)).unwrap_err();
+
+    assert!(
+        err.to_string()
+            .contains("prompt uses 513 tokens, but the ONNX graph is fixed to 512")
+    );
+}
+
+#[test]
+fn dynamic_sequence_length_uses_requested_generation_steps() {
+    let got = generation_step_limit(1024, 256, None).unwrap();
+
+    assert_eq!(got, 256);
 }
 
 #[test]

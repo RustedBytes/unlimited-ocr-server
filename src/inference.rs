@@ -225,8 +225,23 @@ impl UnlimitedOcrWorker {
 
     fn generate(&mut self, mut state: GenerationState<'_>) -> anyhow::Result<Vec<i64>> {
         let mut generated = Vec::new();
+        let max_steps = generation_step_limit(
+            state.input_ids.len(),
+            self.max_new_tokens,
+            self.input_metadata.fixed_sequence_length,
+        )?;
 
-        for _ in 0..self.max_new_tokens {
+        if max_steps < self.max_new_tokens {
+            warn!(
+                "ONNX graph fixed sequence length limits generation worker_id={} prompt_tokens={} requested_max_new_tokens={} effective_max_new_tokens={}",
+                self.id,
+                state.input_ids.len(),
+                self.max_new_tokens,
+                max_steps
+            );
+        }
+
+        for _ in 0..max_steps {
             let position = state
                 .input_ids
                 .len()
@@ -299,6 +314,24 @@ impl UnlimitedOcrWorker {
             },
         ]
     }
+}
+
+fn generation_step_limit(
+    prompt_tokens: usize,
+    requested_max_new_tokens: usize,
+    fixed_sequence_length: Option<usize>,
+) -> anyhow::Result<usize> {
+    let Some(fixed_sequence_length) = fixed_sequence_length else {
+        return Ok(requested_max_new_tokens);
+    };
+
+    if prompt_tokens > fixed_sequence_length {
+        return Err(anyhow!(
+            "prompt uses {prompt_tokens} tokens, but the ONNX graph is fixed to {fixed_sequence_length}; shorten text_input or use a model exported with a longer sequence length"
+        ));
+    }
+
+    Ok(requested_max_new_tokens.min(fixed_sequence_length - prompt_tokens + 1))
 }
 
 impl<'a> GenerationState<'a> {
