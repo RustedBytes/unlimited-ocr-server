@@ -45,6 +45,14 @@ jobs:
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
 
+      - name: Download tokenizer fixture
+        run: |
+          mkdir -p Unlimited-OCR
+          curl --fail --location --retry 3 --retry-delay 5 \
+            --output Unlimited-OCR/tokenizer.json \
+            https://huggingface.co/Yehor/Unlimited-OCR/resolve/main/tokenizer.json
+          test -s Unlimited-OCR/tokenizer.json
+
       - name: Check formatting
         run: cargo fmt --check
 
