@@ -47,7 +47,7 @@ Upload an image or PDF:
 ```bash
 curl -s \
   -F image=@/path/to/input.pdf \
-  -F text_input='<image>Free OCR.' \
+  -F text_input='<|grounding|><image>Convert the document to markdown.' \
   -F webhook_url='https://example.com/unlimited-ocr-webhook' \
   http://127.0.0.1:3000/v1/infer
 ```
@@ -73,12 +73,12 @@ Use local server-side image or PDF path:
 ```bash
 curl -s -X POST http://127.0.0.1:3000/v1/infer/path \
   -H 'content-type: application/json' \
-  -d '{"image_path":"/path/to/input.pdf","text_input":"<image>Free OCR.","webhook_url":"https://example.com/unlimited-ocr-webhook"}'
+  -d '{"image_path":"/path/to/input.pdf","text_input":"<|grounding|><image>Convert the document to markdown.","webhook_url":"https://example.com/unlimited-ocr-webhook"}'
 ```
 
 Local-path inference is disabled by default. Enable `server.allow_local_paths` and configure `server.local_path_roots` before using this endpoint.
 
-`text_input` is the optional Unlimited-OCR prompt override. Empty or missing values use `<image>Free OCR.`.
+`text_input` is the optional Unlimited-OCR prompt override. Empty or missing values use `<|grounding|><image>Convert the document to markdown.`.
 
 `webhook_url` is optional for both submission endpoints. When set, it must use `http` or `https`, must not include credentials or fragments, and rejects local/private literal IP addresses by default. After the job reaches `succeeded` or `failed`, the server sends a `POST` request to that URL with a webhook event envelope:
 

@@ -121,7 +121,7 @@ use askama::Template;
 
       <div>
         <label for="text_input">Prompt (optional)</label>
-        <textarea id="text_input" name="text_input" placeholder="<image>Free OCR."></textarea>
+        <textarea id="text_input" name="text_input" placeholder="<|grounding|><image>Convert the document to markdown."></textarea>
       </div>
 
       <div>

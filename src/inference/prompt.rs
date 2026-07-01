@@ -3,7 +3,7 @@ use tokenizers::Tokenizer;
 
 use crate::types::TaskSpec;
 
-pub(super) const DEFAULT_PROMPT: &str = "<image>Free OCR.";
+pub(super) const DEFAULT_PROMPT: &str = "<|grounding|><image>Convert the document to markdown.";
 pub(super) const IMAGE_TOKEN: &str = "<image>";
 pub(super) const BOS_TOKEN_ID: i64 = 0;
 pub(super) const EOS_TOKEN_ID: i64 = 1;
