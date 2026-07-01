@@ -181,5 +181,5 @@ fn backend_summary_handles_empty_reported_devices() {
 }
 
 fn test_tokenizer() -> Tokenizer {
-    Tokenizer::from_file("Unlimited-OCR/tokenizer.json").unwrap()
+    Tokenizer::from_file("testdata/tokenizer.json").unwrap()
 }
