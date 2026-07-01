@@ -96,6 +96,28 @@ class UnlimitedOcrClient:
                 raise ClientError(f"job {job_id} response has invalid status: {status!r}")
             time.sleep(poll_interval)
 
+    def wait_for_submission(
+        self,
+        response: dict[str, Any],
+        poll_interval: float,
+    ) -> dict[str, Any]:
+        jobs = response.get("jobs")
+        if not isinstance(jobs, list):
+            job_id = response["id"]
+            if not isinstance(job_id, str):
+                raise ClientError(f"submission response has invalid id: {job_id!r}")
+            return self.wait_for_job(job_id, poll_interval)
+
+        completed = []
+        for job in jobs:
+            if not isinstance(job, dict) or not isinstance(job.get("id"), str):
+                raise ClientError(f"PDF submission response has invalid job entry: {job!r}")
+            completed.append(self.wait_for_job(job["id"], poll_interval))
+
+        result = dict(response)
+        result["jobs"] = completed
+        return result
+
     def _request_json(
         self,
         method: str,
@@ -172,9 +194,12 @@ def main() -> int:
             response = client.get_job(args.job_id)
 
         if not args.no_wait and args.command in {"upload", "path"}:
-            response = client.wait_for_job(response["id"], args.poll_interval)
+            response = client.wait_for_submission(response, args.poll_interval)
 
         print(json.dumps(response, indent=2, sort_keys=True))
+        jobs = response.get("jobs")
+        if isinstance(jobs, list):
+            return 1 if any(job.get("status") == "failed" for job in jobs if isinstance(job, dict)) else 0
         return 1 if response.get("status") == "failed" else 0
     except (OSError, KeyError, HTTPError, ClientError) as err:
         print(f"error: {err}", file=sys.stderr)

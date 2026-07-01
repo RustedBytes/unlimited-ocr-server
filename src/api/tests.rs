@@ -383,6 +383,8 @@ fn test_state(allow_local_paths: bool, local_path_roots: Vec<PathBuf>) -> AppSta
             metadata_retention_limit: 10_000,
             max_image_width: 8192,
             max_image_height: 8192,
+            max_pdf_pages: 32,
+            pdf_render_dpi: 200,
             workers: 1,
             queue_size: 1,
             body_limit_bytes: 1024,

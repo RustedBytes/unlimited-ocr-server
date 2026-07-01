@@ -103,12 +103,12 @@ use askama::Template;
 <body>
   <main>
     <h1>Unlimited-OCR Inference</h1>
-    <p>Upload an image and queue OCR inference on the local ONNX worker pool.</p>
+    <p>Upload an image or PDF and queue OCR inference on the local ONNX worker pool.</p>
 
     <form method="post" action="/infer-form" enctype="multipart/form-data">
       <div>
-        <label for="image">Input Picture</label>
-        <input id="image" name="image" type="file" accept="image/*" required>
+        <label for="image">Input File</label>
+        <input id="image" name="image" type="file" accept="image/*,application/pdf" required>
       </div>
 
       <div>
@@ -126,8 +126,10 @@ use askama::Template;
 
     {% if queued %}
     <div class="notice">
-      Job queued: <code>{{ job_id }}</code><br>
+      {{ queued_message }}<br>
+      {% if has_status_url %}
       Status: <a href="{{ status_url }}">{{ status_url }}</a>
+      {% endif %}
     </div>
     {% endif %}
 
@@ -142,7 +144,8 @@ use askama::Template;
 )]
 pub struct IndexTemplate {
     pub queued: bool,
-    pub job_id: String,
+    pub queued_message: String,
     pub status_url: String,
+    pub has_status_url: bool,
     pub error: String,
 }

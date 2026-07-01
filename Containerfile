@@ -35,6 +35,7 @@ RUN apt-get update \
         ca-certificates \
         libstdc++6 \
         libssl3 \
+        poppler-utils \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --home-dir /app --create-home --shell /usr/sbin/nologin unlimitedocr
 

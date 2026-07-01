@@ -16,10 +16,11 @@ use self::{
     defaults::{
         DEFAULT_ADDR, DEFAULT_BODY_LIMIT_BYTES, DEFAULT_DATA_DIR, DEFAULT_JOB_RETENTION_LIMIT,
         DEFAULT_JOB_TIMEOUT_SECONDS, DEFAULT_MAX_IMAGE_HEIGHT, DEFAULT_MAX_IMAGE_WIDTH,
-        DEFAULT_MAX_NEW_TOKENS, DEFAULT_METADATA_RETENTION_LIMIT, DEFAULT_MODEL_IMAGE_SIZE,
-        DEFAULT_QUEUE_SIZE, DEFAULT_REQUEST_TIMEOUT_SECONDS, DEFAULT_RUST_LOG,
-        DEFAULT_WEBHOOK_CONNECT_TIMEOUT_SECONDS, DEFAULT_WEBHOOK_INITIAL_BACKOFF_MS,
-        DEFAULT_WEBHOOK_MAX_ATTEMPTS, DEFAULT_WEBHOOK_TIMEOUT_SECONDS,
+        DEFAULT_MAX_NEW_TOKENS, DEFAULT_MAX_PDF_PAGES, DEFAULT_METADATA_RETENTION_LIMIT,
+        DEFAULT_MODEL_IMAGE_SIZE, DEFAULT_PDF_RENDER_DPI, DEFAULT_QUEUE_SIZE,
+        DEFAULT_REQUEST_TIMEOUT_SECONDS, DEFAULT_RUST_LOG, DEFAULT_WEBHOOK_CONNECT_TIMEOUT_SECONDS,
+        DEFAULT_WEBHOOK_INITIAL_BACKOFF_MS, DEFAULT_WEBHOOK_MAX_ATTEMPTS,
+        DEFAULT_WEBHOOK_TIMEOUT_SECONDS,
     },
     file::FileConfig,
     model_variant::{ModelPathSelection, parse_model_variant},
@@ -52,6 +53,8 @@ pub struct Config {
     pub metadata_retention_limit: usize,
     pub max_image_width: u32,
     pub max_image_height: u32,
+    pub max_pdf_pages: usize,
+    pub pdf_render_dpi: u32,
     pub workers: usize,
     pub queue_size: usize,
     pub body_limit_bytes: usize,
@@ -160,6 +163,16 @@ impl Config {
                 SettingSource::new("MAX_IMAGE_HEIGHT", validation.max_image_height),
                 DEFAULT_MAX_IMAGE_HEIGHT,
             )?,
+            max_pdf_pages: usize_setting(
+                SettingSource::new("MAX_PDF_PAGES", validation.max_pdf_pages),
+                DEFAULT_MAX_PDF_PAGES,
+            )?
+            .max(1),
+            pdf_render_dpi: u32_setting(
+                SettingSource::new("PDF_RENDER_DPI", validation.pdf_render_dpi),
+                DEFAULT_PDF_RENDER_DPI,
+            )?
+            .max(1),
             metadata_dir,
             data_dir,
             workers: usize_setting(

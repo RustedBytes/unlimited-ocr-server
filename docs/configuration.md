@@ -44,6 +44,8 @@ metadata_retention_limit = 10000
 [validation]
 max_image_width = 8192
 max_image_height = 8192
+max_pdf_pages = 32
+pdf_render_dpi = 200
 
 [generation]
 max_new_tokens = 256
@@ -117,6 +119,8 @@ Environment variables override TOML values when set:
 - `METADATA_RETENTION_LIMIT`: maximum latest metadata records kept when JSONL files are compacted at startup; set to `0` to disable compaction
 - `MAX_IMAGE_WIDTH`: maximum accepted image width before decode
 - `MAX_IMAGE_HEIGHT`: maximum accepted image height before decode
+- `MAX_PDF_PAGES`: maximum accepted PDF page count
+- `PDF_RENDER_DPI`: DPI used when rendering PDF pages to PNG before OCR
 - `MODEL_VARIANT`: model variant
 - `MODEL_PATH`: explicit ONNX model path, overrides `MODEL_VARIANT` path selection
 - `DECODE_MODEL_PATH`: optional text decode ONNX path for KV-cache generation
@@ -172,7 +176,9 @@ Request validation happens before the image is decoded for inference:
 - `queue.body_limit_bytes` limits multipart upload size.
 - `queue.request_timeout_seconds` limits total HTTP request handling time and returns `408 Request Timeout`.
 - `validation.max_image_width` and `validation.max_image_height` reject oversized image dimensions.
-- Only supported image formats with `image/*` content types are accepted.
+- `validation.max_pdf_pages` rejects PDFs with too many pages before rendering.
+- `validation.pdf_render_dpi` controls the PNG render resolution for PDF pages.
+- Only supported image formats with `image/*` content types and PDFs are accepted.
 
 Jobs are marked failed if inference exceeds `generation.job_timeout_seconds`. A timed-out blocking inference task may finish in the background, so the worker slot is restarted before it accepts more work.
 

@@ -36,6 +36,8 @@ fn test_config() -> Config {
         metadata_retention_limit: 10_000,
         max_image_width: 8192,
         max_image_height: 8192,
+        max_pdf_pages: 32,
+        pdf_render_dpi: 200,
         workers: 1,
         queue_size: 1,
         body_limit_bytes: 1024,
@@ -69,6 +71,9 @@ fn job_record(input_kind: &str, image_path: PathBuf) -> JobRecord {
         image_bytes: 0,
         input_kind: input_kind.to_string(),
         source_path: None,
+        document_filename: None,
+        document_page: None,
+        document_pages: None,
         text_input: None,
         webhook_url: None,
         result: None,
@@ -100,6 +105,14 @@ fn deletes_only_uploaded_images_under_images_dir() {
     assert!(!should_delete_image(
         &config,
         &job_record("local_path", PathBuf::from("data/images/job.png"))
+    ));
+    assert!(should_delete_image(
+        &config,
+        &job_record("upload_pdf_page", PathBuf::from("data/images/page.png"))
+    ));
+    assert!(should_delete_image(
+        &config,
+        &job_record("local_pdf_page", PathBuf::from("data/images/page.png"))
     ));
     assert!(!should_delete_image(
         &config,

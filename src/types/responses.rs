@@ -15,6 +15,20 @@ pub struct QueueResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SubmissionResponse {
+    Image(QueueResponse),
+    Pdf(PdfQueueResponse),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PdfQueueResponse {
+    pub kind: String,
+    pub page_count: usize,
+    pub jobs: Vec<QueueResponse>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthResponse {
     pub status: &'static str,
     pub ready: bool,

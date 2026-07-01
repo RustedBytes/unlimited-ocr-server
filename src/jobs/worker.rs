@@ -394,7 +394,10 @@ async fn cleanup_job_artifacts(config: &Config, metrics: &AppMetrics, record: &J
 }
 
 pub(super) fn should_delete_image(config: &Config, record: &JobRecord) -> bool {
-    record.input_kind == "upload" && path_is_inside(&record.image_path, &config.images_dir)
+    matches!(
+        record.input_kind.as_str(),
+        "upload" | "upload_pdf_page" | "local_pdf_page"
+    ) && path_is_inside(&record.image_path, &config.images_dir)
 }
 
 fn path_is_inside(path: &Path, directory: &Path) -> bool {

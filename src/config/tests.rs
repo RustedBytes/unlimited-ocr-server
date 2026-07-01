@@ -129,6 +129,8 @@ metadata_retention_limit = 128
 [validation]
 max_image_width = 640
 max_image_height = 480
+max_pdf_pages = 12
+pdf_render_dpi = 180
 
 [generation]
 max_new_tokens = 32
@@ -181,6 +183,8 @@ rust_log = "debug"
     assert_eq!(retention.metadata_retention_limit, Some(128));
     assert_eq!(validation.max_image_width, Some(640));
     assert_eq!(validation.max_image_height, Some(480));
+    assert_eq!(validation.max_pdf_pages, Some(12));
+    assert_eq!(validation.pdf_render_dpi, Some(180));
     assert_eq!(generation.max_new_tokens, Some(32));
     assert_eq!(generation.job_timeout_seconds, Some(45));
     assert_eq!(generation.webhook_timeout_seconds, Some(12));

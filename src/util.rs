@@ -53,11 +53,13 @@ pub fn hmac_sha256_hex(secret: &str, bytes: &[u8]) -> String {
 
 pub fn guess_extension(content_type: Option<&str>, bytes: &[u8]) -> &'static str {
     match content_type {
+        Some("application/pdf") => "pdf",
         Some("image/png") => "png",
         Some("image/jpeg") => "jpg",
         Some("image/webp") => "webp",
         Some("image/bmp") => "bmp",
         Some("image/tiff") => "tiff",
+        _ if bytes.starts_with(b"%PDF-") => "pdf",
         _ => image::guess_format(bytes)
             .ok()
             .and_then(image_format_extension)
@@ -119,6 +121,15 @@ mod tests {
     #[test]
     fn content_type_takes_precedence_for_extension() {
         assert_eq!(guess_extension(Some("image/jpeg"), PNG_HEADER), "jpg");
+    }
+
+    #[test]
+    fn guesses_pdf_extension_from_content_type_or_bytes() {
+        assert_eq!(
+            guess_extension(Some("application/pdf"), b"not a pdf"),
+            "pdf"
+        );
+        assert_eq!(guess_extension(None, b"%PDF-1.7\n"), "pdf");
     }
 
     #[test]

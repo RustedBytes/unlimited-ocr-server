@@ -36,22 +36,38 @@ OpenAPI document:
 curl http://127.0.0.1:3000/openapi.json
 ```
 
-Upload image:
+Upload an image or PDF:
 
 ```bash
 curl -s \
-  -F image=@/path/to/image.png \
+  -F image=@/path/to/input.pdf \
   -F text_input='<image>Free OCR.' \
   -F webhook_url='https://example.com/unlimited-ocr-webhook' \
   http://127.0.0.1:3000/v1/infer
 ```
 
-Use local server-side image path:
+Image uploads return one queued job. PDF uploads are rendered to PNG pages and return one queued job per page:
+
+```json
+{
+  "kind": "pdf",
+  "page_count": 2,
+  "jobs": [
+    {
+      "id": "9b55eaa1-7f6f-4ac6-89ef-16e6b2f9b927",
+      "status": "queued",
+      "status_url": "/v1/jobs/9b55eaa1-7f6f-4ac6-89ef-16e6b2f9b927"
+    }
+  ]
+}
+```
+
+Use local server-side image or PDF path:
 
 ```bash
 curl -s -X POST http://127.0.0.1:3000/v1/infer/path \
   -H 'content-type: application/json' \
-  -d '{"image_path":"/path/to/image.png","text_input":"<image>Free OCR.","webhook_url":"https://example.com/unlimited-ocr-webhook"}'
+  -d '{"image_path":"/path/to/input.pdf","text_input":"<image>Free OCR.","webhook_url":"https://example.com/unlimited-ocr-webhook"}'
 ```
 
 Local-path inference is disabled by default. Enable `server.allow_local_paths` and configure `server.local_path_roots` before using this endpoint.
@@ -94,10 +110,10 @@ Errors use a stable JSON shape:
 ```json
 {
   "code": "bad_request",
-  "message": "uploaded image is empty"
+  "message": "uploaded file is empty"
 }
 ```
 
 Known error codes are `bad_request`, `not_found`, `forbidden`, `unauthorized`, `rate_limited`, `service_unavailable`, and `internal_error`.
 
-Requests return `408` if they exceed the configured `queue.request_timeout_seconds` limit, `401` if API key authentication is enabled and the key is missing or invalid, and `429` if rate limiting is enabled and the process-wide limit is exceeded. Inference submissions return `503` when no model worker is ready, when the queue is full, or when the queue has closed. Uploads are rejected before inference if they exceed the configured body limit, have an unsupported content type or format, or exceed the configured image dimensions.
+Requests return `408` if they exceed the configured `queue.request_timeout_seconds` limit, `401` if API key authentication is enabled and the key is missing or invalid, and `429` if rate limiting is enabled and the process-wide limit is exceeded. Inference submissions return `503` when no model worker is ready, when the queue is full, when a PDF has more pages than remaining queue capacity, or when the queue has closed. Uploads are rejected before inference if they exceed the configured body limit, have an unsupported content type or format, exceed the configured image dimensions, or exceed the configured PDF page limit.

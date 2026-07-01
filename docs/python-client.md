@@ -8,10 +8,10 @@ Install the Python dependency:
 python3 -m pip install urllib3
 ```
 
-Submit an image upload and wait for the final result:
+Submit an image or PDF upload and wait for the final result:
 
 ```bash
-python3 examples/python_client.py upload /path/to/image.png
+python3 examples/python_client.py upload /path/to/input.pdf
 ```
 
 If API key authentication is enabled:
@@ -19,13 +19,13 @@ If API key authentication is enabled:
 ```bash
 python3 examples/python_client.py \
   --api-key replace-with-a-long-random-secret \
-  upload /path/to/image.png
+  upload /path/to/input.pdf
 ```
 
-Submit a server-side image path:
+Submit a server-side image or PDF path:
 
 ```bash
-python3 examples/python_client.py path /path/to/image.png
+python3 examples/python_client.py path /path/to/input.pdf
 ```
 
 Use another OCR prompt:

@@ -31,6 +31,12 @@ pub struct JobRecord {
     pub input_kind: String,
     pub source_path: Option<PathBuf>,
     #[serde(default)]
+    pub document_filename: Option<String>,
+    #[serde(default)]
+    pub document_page: Option<usize>,
+    #[serde(default)]
+    pub document_pages: Option<usize>,
+    #[serde(default)]
     pub text_input: Option<String>,
     pub webhook_url: Option<String>,
     pub result: Option<InferenceMetadata>,

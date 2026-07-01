@@ -12,6 +12,6 @@ Startup also compacts metadata to the latest `retention.metadata_retention_limit
 
 Webhook delivery failures are appended to `webhooks_dead_letter.jsonl` only after all configured retry attempts fail. Each record contains the webhook event, attempt count, failure time, and final error.
 
-Uploaded image files in `data/images/` are removed after each job finishes. Images submitted through `/v1/infer/path` are treated as caller-owned files and are not deleted.
+Uploaded image files and rendered PDF page images in `data/images/` are removed after each job finishes. Original files submitted through `/v1/infer/path` are treated as caller-owned files and are not deleted.
 
 Inference results include generated OCR text and a JSON object shaped as `{ "text": "<decoded OCR text>" }`.

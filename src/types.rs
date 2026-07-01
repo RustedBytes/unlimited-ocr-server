@@ -8,8 +8,8 @@ pub use inference::{
 };
 pub use job::{JobRecord, JobStatus};
 pub use responses::{
-    ErrorResponse, GpuMemoryResponse, HealthResponse, MetricsResponse, QueueResponse,
-    ReadinessResponse, WorkerHealth,
+    ErrorResponse, GpuMemoryResponse, HealthResponse, MetricsResponse, PdfQueueResponse,
+    QueueResponse, ReadinessResponse, SubmissionResponse, WorkerHealth,
 };
 pub use task::TaskSpec;
 

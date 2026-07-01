@@ -106,4 +106,6 @@ pub(super) struct RetentionConfig {
 pub(super) struct ValidationConfig {
     pub(super) max_image_width: Option<u32>,
     pub(super) max_image_height: Option<u32>,
+    pub(super) max_pdf_pages: Option<usize>,
+    pub(super) pdf_render_dpi: Option<u32>,
 }

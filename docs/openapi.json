@@ -70,7 +70,7 @@
     },
     "/v1/infer": {
       "post": {
-        "summary": "Queue inference from a multipart image upload",
+        "summary": "Queue inference from a multipart image or PDF upload",
         "requestBody": {
           "required": true,
           "content": {
@@ -83,11 +83,18 @@
         },
         "responses": {
           "200": {
-            "description": "Job queued",
+            "description": "Job or PDF page jobs queued",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/QueueResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/QueueResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PdfQueueResponse"
+                    }
+                  ]
                 }
               }
             }
@@ -109,7 +116,7 @@
     },
     "/v1/infer/path": {
       "post": {
-        "summary": "Queue inference from a server-side image path",
+        "summary": "Queue inference from a server-side image or PDF path",
         "requestBody": {
           "required": true,
           "content": {
@@ -122,11 +129,18 @@
         },
         "responses": {
           "200": {
-            "description": "Job queued",
+            "description": "Job or PDF page jobs queued",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/QueueResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/QueueResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PdfQueueResponse"
+                    }
+                  ]
                 }
               }
             }
@@ -297,6 +311,29 @@
           }
         }
       },
+      "PdfQueueResponse": {
+        "type": "object",
+        "required": [
+          "kind",
+          "page_count",
+          "jobs"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "pdf"
+          },
+          "page_count": {
+            "type": "integer"
+          },
+          "jobs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QueueResponse"
+            }
+          }
+        }
+      },
       "LocalPathRequest": {
         "type": "object",
         "required": [
@@ -304,7 +341,8 @@
         ],
         "properties": {
           "image_path": {
-            "type": "string"
+            "type": "string",
+            "description": "Server-side image or PDF path"
           },
           "text_input": {
             "type": [
@@ -330,7 +368,8 @@
         "properties": {
           "image": {
             "type": "string",
-            "format": "binary"
+            "format": "binary",
+            "description": "Image or PDF file"
           },
           "text_input": {
             "type": "string",

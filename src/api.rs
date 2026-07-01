@@ -22,9 +22,9 @@ use uuid::Uuid;
 use crate::{
     state::AppState,
     templates::IndexTemplate,
+    types::SubmissionResponse,
     types::{
-        ErrorResponse, HealthResponse, JobRecord, MetricsResponse, QueueResponse,
-        ReadinessResponse, WorkerHealth,
+        ErrorResponse, HealthResponse, JobRecord, MetricsResponse, ReadinessResponse, WorkerHealth,
     },
 };
 
@@ -254,25 +254,42 @@ async fn track_request_metrics(
 }
 
 fn render_index(
-    response: Option<QueueResponse>,
+    response: Option<SubmissionResponse>,
     error: Option<String>,
 ) -> Result<Html<String>, ApiError> {
+    let (queued_message, status_url) = queued_submission_view(response.as_ref());
     let template = IndexTemplate {
         queued: response.is_some(),
-        job_id: response
-            .as_ref()
-            .map(|response| response.id.to_string())
-            .unwrap_or_default(),
-        status_url: response
-            .as_ref()
-            .map(|response| response.status_url.clone())
-            .unwrap_or_default(),
+        queued_message,
+        status_url,
+        has_status_url: response.is_some(),
         error: error.unwrap_or_default(),
     };
 
     template.render().map(Html).map_err(|err| {
         ApiError::Internal(anyhow::anyhow!("failed to render index template: {err}"))
     })
+}
+
+fn queued_submission_view(response: Option<&SubmissionResponse>) -> (String, String) {
+    match response {
+        Some(SubmissionResponse::Image(response)) => (
+            format!("Job queued: {}", response.id),
+            response.status_url.clone(),
+        ),
+        Some(SubmissionResponse::Pdf(response)) => {
+            let first_status_url = response
+                .jobs
+                .first()
+                .map(|job| job.status_url.clone())
+                .unwrap_or_default();
+            (
+                format!("PDF queued: {} page jobs", response.page_count),
+                first_status_url,
+            )
+        }
+        None => (String::new(), String::new()),
+    }
 }
 
 fn worker_health(state: &AppState) -> WorkerHealth {
