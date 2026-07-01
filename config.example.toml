@@ -23,7 +23,7 @@ variant = "unlimited_ocr"
 image_size = 1024
 
 # Optional explicit ONNX path. When set, this overrides variant path selection.
-# path = "Unlimited-OCR/onnx/unlimited_ocr_prefill.onnx"
+# path = "Unlimited-OCR/onnx/unlimited_ocr.onnx"
 
 # Optional text decode ONNX path for KV-cache generation. When omitted and
 # `path` contains "prefill", the server auto-detects a sibling path with
@@ -49,14 +49,12 @@ metadata_retention_limit = 10000
 [validation]
 max_image_width = 8192
 max_image_height = 8192
-max_pdf_pages = 32
-pdf_render_dpi = 200
 
 [generation]
-max_new_tokens = 256
+max_new_tokens = 32768
 
 # Set to 0 to disable per-job timeout enforcement.
-job_timeout_seconds = 300
+job_timeout_seconds = 600
 
 # Set either value to 0 to disable that webhook timeout.
 webhook_timeout_seconds = 10
@@ -78,10 +76,6 @@ allow_private_webhook_urls = false
 # CUDA is also supported when the binary is built with `--features cuda`.
 # Keep auto as the default. Explicit providers remain opt-in.
 execution_providers = ["auto"]
-
-# Optional ORT device id for providers that support device selection.
-# Currently honored by CUDA; omit to use the provider default device.
-# device_id = 0
 
 [logging]
 rust_log = "info,ort=warn"
