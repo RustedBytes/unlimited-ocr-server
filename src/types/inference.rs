@@ -9,6 +9,8 @@ use crate::config::ModelVariant;
 pub struct OcrResult {
     pub text: String,
     pub detections: Vec<OcrDetection>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tables: Vec<OcrTable>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -18,12 +20,36 @@ pub struct OcrDetection {
     pub text: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OcrTable {
+    pub bbox: BoundingBox,
+    pub html: String,
+    pub rows: Vec<Vec<OcrTableCell>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OcrTableCell {
+    pub text: String,
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub row_span: usize,
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub col_span: usize,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BoundingBox {
     pub x_min: i64,
     pub y_min: i64,
     pub x_max: i64,
     pub y_max: i64,
+}
+
+fn one() -> usize {
+    1
+}
+
+fn is_one(value: &usize) -> bool {
+    *value == 1
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -4,7 +4,8 @@ mod responses;
 mod task;
 
 pub use inference::{
-    BoundingBox, GenerationMetadata, InferenceMetadata, OcrDetection, OcrResult, TensorMetadata,
+    BoundingBox, GenerationMetadata, InferenceMetadata, OcrDetection, OcrResult, OcrTable,
+    OcrTableCell, TensorMetadata,
 };
 pub use job::{JobRecord, JobStatus};
 pub use responses::{
