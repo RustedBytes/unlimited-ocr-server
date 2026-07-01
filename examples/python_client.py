@@ -14,20 +14,26 @@ from urllib.parse import urljoin
 
 try:
     import urllib3
-    from urllib3.exceptions import HTTPError
 except ModuleNotFoundError:
     urllib3 = None
-
-    class HTTPError(Exception):
-        pass
 
 
 DEFAULT_BASE_URL = "http://127.0.0.1:3000"
 TERMINAL_STATUSES = {"succeeded", "failed"}
+HTTP_ERRORS: tuple[type[BaseException], ...] = (
+    (urllib3.exceptions.HTTPError,) if urllib3 is not None else ()
+)
 
 
 class ClientError(RuntimeError):
     """Raised when the server returns an error or invalid response."""
+
+
+CLIENT_EXCEPTIONS: tuple[type[BaseException], ...] = (
+    OSError,
+    KeyError,
+    ClientError,
+) + HTTP_ERRORS
 
 
 class UnlimitedOcrClient:
@@ -201,7 +207,7 @@ def main() -> int:
         if isinstance(jobs, list):
             return 1 if any(job.get("status") == "failed" for job in jobs if isinstance(job, dict)) else 0
         return 1 if response.get("status") == "failed" else 0
-    except (OSError, KeyError, HTTPError, ClientError) as err:
+    except CLIENT_EXCEPTIONS as err:
         print(f"error: {err}", file=sys.stderr)
         return 1
 
