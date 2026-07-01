@@ -1,10 +1,11 @@
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
 
 use async_channel::bounded;
-use axum::body::Body;
+use axum::body::{Body, to_bytes};
 use axum::http::{HeaderName, HeaderValue, header};
 use axum::middleware;
 use serde_json::json;
+use time::OffsetDateTime;
 use tokio::sync::RwLock;
 use tower::ServiceExt;
 use tower_http::timeout::TimeoutLayer;
@@ -17,6 +18,10 @@ use super::*;
 use crate::{
     config::{Config, ModelVariant},
     state::{AppMetrics, RateLimiter, WorkerPoolState},
+    types::{
+        BoundingBox, InferenceMetadata, JobRecord, JobStatus, OcrDetection, OcrResult, OcrTable,
+        OcrTableCell,
+    },
 };
 
 #[test]
@@ -77,6 +82,7 @@ fn openapi_document_describes_core_paths() {
 
     assert_eq!(document["openapi"], "3.1.0");
     assert!(document["paths"]["/v1/infer"].is_object());
+    assert!(document["paths"]["/v1/jobs/{id}/html"].is_object());
     assert!(document["paths"]["/metrics"].is_object());
     assert!(document["components"]["schemas"]["ErrorResponse"].is_object());
     assert!(document["components"]["schemas"]["LocalPathRequest"]["properties"]["task"].is_null());
@@ -360,6 +366,55 @@ async fn local_path_endpoint_allows_files_under_configured_roots() {
     tokio::fs::remove_dir_all(root).await.unwrap();
 }
 
+#[tokio::test]
+async fn job_html_route_renders_structured_ocr_result() {
+    let state = test_state(false, Vec::new());
+    let job = succeeded_job_with_table();
+    let id = job.id;
+    state.jobs.write().await.insert(id, job);
+    let app = router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri(format!("/v1/jobs/{id}/html"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let html = response_text(response).await;
+    assert!(html.contains("OCR Job f1c5fe43-e132-4e9f-bdec-e20f3f94cae5"));
+    assert!(html.contains("PCS Optical Fibers"));
+    assert!(html.contains("<td>PCS</td>"));
+    assert!(html.contains("0.5"));
+    assert!(!html.contains("<td>< 0.5</td>"));
+    assert!(html.contains("<td colspan=\"2\">Group</td>"));
+    assert!(html.contains("Safety"));
+    assert!(html.contains("script"));
+    assert!(!html.contains("Safety <script>"));
+}
+
+#[tokio::test]
+async fn job_html_route_returns_404_for_unknown_job() {
+    let state = test_state(false, Vec::new());
+    let app = router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/v1/jobs/f1c5fe43-e132-4e9f-bdec-e20f3f94cae5/html")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+}
+
 fn test_state(allow_local_paths: bool, local_path_roots: Vec<PathBuf>) -> AppState {
     let (queue_tx, _queue_rx) = bounded(1);
     AppState {
@@ -408,6 +463,115 @@ fn test_state(allow_local_paths: bool, local_path_roots: Vec<PathBuf>) -> AppSta
         workers: Arc::new(WorkerPoolState::new(1)),
         metrics: Arc::new(AppMetrics::default()),
         rate_limiter: Arc::new(RateLimiter::new(0)),
+    }
+}
+
+async fn response_text(response: Response) -> String {
+    let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    String::from_utf8(bytes.to_vec()).unwrap()
+}
+
+fn succeeded_job_with_table() -> JobRecord {
+    let id = Uuid::parse_str("f1c5fe43-e132-4e9f-bdec-e20f3f94cae5").unwrap();
+    let now = OffsetDateTime::now_utc();
+    let table_bbox = BoundingBox {
+        x_min: 202,
+        y_min: 627,
+        x_max: 830,
+        y_max: 740,
+    };
+    let table_html = "<table><tr><td colspan=\"2\">Group</td></tr><tr><td>PCS</td><td>&lt; 0.5</td></tr></table>";
+    let result = OcrResult {
+        text: "PCS Optical Fibers".to_string(),
+        detections: vec![
+            OcrDetection {
+                label: "title".to_string(),
+                bbox: BoundingBox {
+                    x_min: 266,
+                    y_min: 263,
+                    x_max: 768,
+                    y_max: 285,
+                },
+                text: "PCS Optical Fibers".to_string(),
+            },
+            OcrDetection {
+                label: "table".to_string(),
+                bbox: table_bbox,
+                text: table_html.to_string(),
+            },
+            OcrDetection {
+                label: "text".to_string(),
+                bbox: BoundingBox {
+                    x_min: 1,
+                    y_min: 2,
+                    x_max: 3,
+                    y_max: 4,
+                },
+                text: "Safety <script>".to_string(),
+            },
+        ],
+        tables: vec![OcrTable {
+            bbox: table_bbox,
+            html: table_html.to_string(),
+            rows: vec![
+                vec![OcrTableCell {
+                    text: "Group".to_string(),
+                    row_span: 1,
+                    col_span: 2,
+                }],
+                vec![
+                    OcrTableCell {
+                        text: "PCS".to_string(),
+                        row_span: 1,
+                        col_span: 1,
+                    },
+                    OcrTableCell {
+                        text: "< 0.5".to_string(),
+                        row_span: 1,
+                        col_span: 1,
+                    },
+                ],
+            ],
+        }],
+    };
+
+    JobRecord {
+        id,
+        status: JobStatus::Succeeded,
+        created_at: now,
+        updated_at: now,
+        image_path: PathBuf::from("data/images/page-1.png"),
+        filename: Some("sample.pdf#page=1".to_string()),
+        content_type: Some("image/png".to_string()),
+        image_sha256: "sha256".to_string(),
+        image_bytes: 10,
+        input_kind: "upload_pdf_page".to_string(),
+        source_path: None,
+        document_filename: Some("sample.pdf".to_string()),
+        document_page: Some(1),
+        document_pages: Some(1),
+        text_input: Some("<image>Convert the document to markdown.".to_string()),
+        webhook_url: None,
+        result: Some(InferenceMetadata {
+            backend: "test".to_string(),
+            model_path: PathBuf::from("model.onnx"),
+            model_variant: ModelVariant::UnlimitedOcr,
+            input_name: "images_ori".to_string(),
+            input_dtype: "f16".to_string(),
+            original_width: 1700,
+            original_height: 2200,
+            processed_width: 1024,
+            processed_height: 1024,
+            elapsed_ms: 42,
+            task_token: "unlimited_ocr".to_string(),
+            prompt_text: "<image>Convert the document to markdown.".to_string(),
+            generated_text: result.text.clone(),
+            generated_tokens: 12,
+            result: json!(result),
+            generations: Vec::new(),
+            outputs: Vec::new(),
+        }),
+        error: None,
     }
 }
 

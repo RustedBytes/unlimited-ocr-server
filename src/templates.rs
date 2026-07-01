@@ -149,3 +149,243 @@ pub struct IndexTemplate {
     pub has_status_url: bool,
     pub error: String,
 }
+
+#[derive(Debug, Clone)]
+pub struct JobHtmlDetectionView {
+    pub label: String,
+    pub bbox: String,
+    pub text: String,
+    pub tables: Vec<JobHtmlTableView>,
+    pub has_tables: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct JobHtmlTableView {
+    pub rows: Vec<Vec<JobHtmlTableCellView>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct JobHtmlTableCellView {
+    pub text: String,
+    pub row_span: usize,
+    pub col_span: usize,
+    pub has_row_span: bool,
+    pub has_col_span: bool,
+}
+
+#[derive(Template)]
+#[template(
+    source = r###"
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OCR Job {{ id }}</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f6f8;
+      color: #1f2933;
+    }
+    body {
+      margin: 0;
+      padding: 28px;
+    }
+    main {
+      max-width: 1040px;
+      margin: 0 auto;
+    }
+    header {
+      margin-bottom: 24px;
+      border-bottom: 1px solid #d9dee7;
+      padding-bottom: 18px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+    h2 {
+      margin: 28px 0 12px;
+      font-size: 17px;
+    }
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px 18px;
+      color: #52606d;
+      font-size: 14px;
+    }
+    .meta strong {
+      display: block;
+      color: #323f4b;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    .notice,
+    .error {
+      border: 1px solid #d9dee7;
+      border-radius: 6px;
+      background: #ffffff;
+      padding: 14px 16px;
+      color: #52606d;
+    }
+    .error {
+      border-color: #f3b5b5;
+      background: #fff1f1;
+      color: #8a1f1f;
+    }
+    .detection {
+      margin: 0 0 16px;
+      border: 1px solid #d9dee7;
+      border-radius: 8px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+    .detection-header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      align-items: baseline;
+      padding: 10px 12px;
+      border-bottom: 1px solid #e5e9f0;
+      background: #f9fafb;
+    }
+    .label {
+      font-weight: 750;
+      color: #102a43;
+    }
+    .bbox {
+      color: #627d98;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+    .text {
+      margin: 0;
+      padding: 12px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.5;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      padding: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      background: #ffffff;
+    }
+    td {
+      border: 1px solid #cbd2d9;
+      padding: 7px 9px;
+      vertical-align: top;
+      min-width: 70px;
+    }
+    tr:first-child td {
+      font-weight: 700;
+      background: #f3f6fa;
+    }
+    .raw {
+      border: 1px solid #d9dee7;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 12px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.5;
+    }
+    a {
+      color: #2563eb;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>OCR Job {{ id }}</h1>
+      <div class="meta">
+        <div><strong>Status</strong>{{ status }}</div>
+        <div><strong>Updated</strong>{{ updated_at }}</div>
+        <div><strong>Input</strong>{{ filename }}</div>
+        <div><strong>JSON</strong><a href="/v1/jobs/{{ id }}">/v1/jobs/{{ id }}</a></div>
+      </div>
+    </header>
+
+    {% if error != "" %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+
+    {% if has_result %}
+    <section>
+      <div class="meta">
+        <div><strong>Prompt</strong>{{ prompt_text }}</div>
+        <div><strong>Tokens</strong>{{ generated_tokens }}</div>
+        <div><strong>Elapsed</strong>{{ elapsed_ms }} ms</div>
+      </div>
+    </section>
+
+    {% if has_detections %}
+    <section>
+      <h2>Recognized Blocks</h2>
+      {% for detection in detections %}
+      <article class="detection">
+        <div class="detection-header">
+          <span class="label">{{ detection.label }}</span>
+          <span class="bbox">{{ detection.bbox }}</span>
+        </div>
+        {% if detection.has_tables %}
+          {% for table in detection.tables %}
+          <div class="table-wrap">
+            <table>
+              <tbody>
+                {% for row in table.rows %}
+                <tr>
+                  {% for cell in row %}
+                  <td{% if cell.has_row_span %} rowspan="{{ cell.row_span }}"{% endif %}{% if cell.has_col_span %} colspan="{{ cell.col_span }}"{% endif %}>{{ cell.text }}</td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endfor %}
+        {% else %}
+        <pre class="text">{{ detection.text }}</pre>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </section>
+    {% else %}
+    <section>
+      <h2>Recognized Text</h2>
+      <pre class="raw">{{ raw_text }}</pre>
+    </section>
+    {% endif %}
+    {% else %}
+    <div class="notice">No OCR result is available for this job yet.</div>
+    {% endif %}
+  </main>
+</body>
+</html>
+"###,
+    ext = "html"
+)]
+pub struct JobHtmlTemplate {
+    pub id: String,
+    pub status: String,
+    pub updated_at: String,
+    pub filename: String,
+    pub has_result: bool,
+    pub error: String,
+    pub prompt_text: String,
+    pub generated_tokens: usize,
+    pub elapsed_ms: u128,
+    pub detections: Vec<JobHtmlDetectionView>,
+    pub has_detections: bool,
+    pub raw_text: String,
+}

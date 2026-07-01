@@ -105,6 +105,12 @@ Check job:
 curl http://127.0.0.1:3000/v1/jobs/<job-id>
 ```
 
+Open a human-readable rendering of the recognized OCR blocks and tables:
+
+```bash
+curl http://127.0.0.1:3000/v1/jobs/<job-id>/html
+```
+
 Errors use a stable JSON shape:
 
 ```json

@@ -21,11 +21,15 @@ use uuid::Uuid;
 
 use crate::{
     state::AppState,
-    templates::IndexTemplate,
+    templates::{
+        IndexTemplate, JobHtmlDetectionView, JobHtmlTableCellView, JobHtmlTableView,
+        JobHtmlTemplate,
+    },
     types::SubmissionResponse,
     types::{
         ErrorResponse, HealthResponse, JobRecord, MetricsResponse, ReadinessResponse, WorkerHealth,
     },
+    types::{JobStatus, OcrDetection, OcrResult, OcrTable},
 };
 
 use self::{
@@ -49,6 +53,7 @@ pub fn router(state: AppState) -> Router {
         .route("/infer-form", post(submit_inference_form))
         .route("/v1/infer/path", post(submit_inference_path))
         .route("/v1/jobs/{id}", get(get_job))
+        .route("/v1/jobs/{id}/html", get(get_job_html))
         .layer(DefaultBodyLimit::max(state.config.body_limit_bytes))
         .layer(middleware::from_fn_with_state(
             state_for_middleware.clone(),
@@ -216,6 +221,16 @@ async fn get_job(
     Ok(Json(record))
 }
 
+async fn get_job_html(
+    State(state): State<AppState>,
+    AxumPath(id): AxumPath<Uuid>,
+) -> Result<Html<String>, ApiError> {
+    let jobs = state.jobs.read().await;
+    let record = jobs.get(&id).cloned().ok_or(ApiError::NotFound)?;
+    debug!("job html read job_id={} status={:?}", id, record.status);
+    render_job_html(&record)
+}
+
 async fn track_request_metrics(
     State(state): State<AppState>,
     request: Request,
@@ -251,6 +266,134 @@ async fn track_request_metrics(
     );
 
     response
+}
+
+fn render_job_html(record: &JobRecord) -> Result<Html<String>, ApiError> {
+    let result = record.result.as_ref();
+    let parsed = result.and_then(|metadata| {
+        serde_json::from_value::<OcrResult>(metadata.result.clone())
+            .map_err(|err| {
+                debug!("failed to parse structured OCR result for html view error={err}");
+                err
+            })
+            .ok()
+    });
+    let detections = parsed
+        .as_ref()
+        .map(job_html_detection_views)
+        .unwrap_or_default();
+    let raw_text = parsed
+        .as_ref()
+        .map(|result| result.text.clone())
+        .or_else(|| result.map(|metadata| metadata.generated_text.clone()))
+        .unwrap_or_default();
+    let prompt_text = result
+        .map(|metadata| metadata.prompt_text.clone())
+        .unwrap_or_default();
+    let generated_tokens = result
+        .map(|metadata| metadata.generated_tokens)
+        .unwrap_or_default();
+    let elapsed_ms = result
+        .map(|metadata| metadata.elapsed_ms)
+        .unwrap_or_default();
+    let has_detections = !detections.is_empty();
+
+    let html = JobHtmlTemplate {
+        id: record.id.to_string(),
+        status: job_status_label(&record.status).to_string(),
+        updated_at: record.updated_at.to_string(),
+        filename: job_input_label(record),
+        has_result: result.is_some(),
+        error: record.error.clone().unwrap_or_default(),
+        prompt_text,
+        generated_tokens,
+        elapsed_ms,
+        detections,
+        has_detections,
+        raw_text,
+    }
+    .render()
+    .map_err(|err| anyhow::anyhow!("failed to render job html view: {err}"))?;
+
+    Ok(Html(html))
+}
+
+fn job_html_detection_views(result: &OcrResult) -> Vec<JobHtmlDetectionView> {
+    let mut used_tables = vec![false; result.tables.len()];
+    result
+        .detections
+        .iter()
+        .map(|detection| {
+            let tables = matching_table_views(detection, &result.tables, &mut used_tables);
+            let has_tables = !tables.is_empty();
+            JobHtmlDetectionView {
+                label: detection.label.clone(),
+                bbox: format_bbox(&detection.bbox),
+                text: detection.text.clone(),
+                tables,
+                has_tables,
+            }
+        })
+        .collect()
+}
+
+fn matching_table_views(
+    detection: &OcrDetection,
+    tables: &[OcrTable],
+    used_tables: &mut [bool],
+) -> Vec<JobHtmlTableView> {
+    if !detection.label.eq_ignore_ascii_case("table") {
+        return Vec::new();
+    }
+
+    let Some(index) = tables.iter().enumerate().position(|(index, table)| {
+        !used_tables[index] && table.bbox == detection.bbox && table.html == detection.text
+    }) else {
+        return Vec::new();
+    };
+    used_tables[index] = true;
+
+    vec![JobHtmlTableView {
+        rows: tables[index]
+            .rows
+            .iter()
+            .map(|row| {
+                row.iter()
+                    .map(|cell| JobHtmlTableCellView {
+                        text: cell.text.clone(),
+                        row_span: cell.row_span,
+                        col_span: cell.col_span,
+                        has_row_span: cell.row_span > 1,
+                        has_col_span: cell.col_span > 1,
+                    })
+                    .collect()
+            })
+            .collect(),
+    }]
+}
+
+fn format_bbox(bbox: &crate::types::BoundingBox) -> String {
+    format!(
+        "[{}, {}, {}, {}]",
+        bbox.x_min, bbox.y_min, bbox.x_max, bbox.y_max
+    )
+}
+
+fn job_status_label(status: &JobStatus) -> &'static str {
+    match status {
+        JobStatus::Queued => "queued",
+        JobStatus::Running => "running",
+        JobStatus::Succeeded => "succeeded",
+        JobStatus::Failed => "failed",
+    }
+}
+
+fn job_input_label(record: &JobRecord) -> String {
+    record
+        .filename
+        .clone()
+        .or_else(|| record.document_filename.clone())
+        .unwrap_or_else(|| record.image_path.display().to_string())
 }
 
 fn render_index(
