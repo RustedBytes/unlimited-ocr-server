@@ -8,13 +8,14 @@ use std::time::{Duration, Instant};
 use askama::Template;
 use axum::{
     Json, Router,
-    extract::{DefaultBodyLimit, Path as AxumPath, Request, State},
+    extract::{DefaultBodyLimit, Path as AxumPath, Query, Request, State},
     http::StatusCode,
     middleware::{self, Next},
     response::{Html, IntoResponse, Response},
     routing::{get, post},
 };
 use log::{debug, info};
+use serde::Deserialize;
 use serde_json::Value;
 use tower_http::timeout::TimeoutLayer;
 use uuid::Uuid;
@@ -23,7 +24,7 @@ use crate::{
     state::AppState,
     templates::{
         IndexTemplate, JobHtmlDetectionView, JobHtmlTableCellView, JobHtmlTableView,
-        JobHtmlTemplate,
+        JobHtmlTemplate, JobsIndexRowView, JobsIndexTemplate,
     },
     types::SubmissionResponse,
     types::{
@@ -45,6 +46,7 @@ pub fn router(state: AppState) -> Router {
     let state_for_middleware = state.clone();
     let mut router = Router::new()
         .route("/", get(index))
+        .route("/jobs", get(jobs_index))
         .route("/health", get(health))
         .route("/ready", get(readiness))
         .route("/metrics", get(metrics))
@@ -84,6 +86,12 @@ pub fn router(state: AppState) -> Router {
             track_request_metrics,
         ))
         .layer(middleware::from_fn(add_security_headers))
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct JobsIndexQuery {
+    page: Option<usize>,
+    per_page: Option<usize>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -131,6 +139,15 @@ impl ApiError {
 
 async fn index() -> Result<Html<String>, ApiError> {
     render_index(None, None)
+}
+
+async fn jobs_index(
+    State(state): State<AppState>,
+    Query(query): Query<JobsIndexQuery>,
+) -> Result<Html<String>, ApiError> {
+    let jobs = state.jobs.read().await;
+    let records = jobs.values().cloned().collect::<Vec<_>>();
+    render_jobs_index(records, query)
 }
 
 async fn health(State(state): State<AppState>) -> Json<HealthResponse> {
@@ -316,6 +333,82 @@ fn render_job_html(record: &JobRecord) -> Result<Html<String>, ApiError> {
     .map_err(|err| anyhow::anyhow!("failed to render job html view: {err}"))?;
 
     Ok(Html(html))
+}
+
+fn render_jobs_index(
+    mut records: Vec<JobRecord>,
+    query: JobsIndexQuery,
+) -> Result<Html<String>, ApiError> {
+    records.sort_by(|left, right| {
+        right
+            .updated_at
+            .cmp(&left.updated_at)
+            .then_with(|| right.id.cmp(&left.id))
+    });
+
+    let total_jobs = records.len();
+    let per_page = query.per_page.unwrap_or(25).clamp(1, 100);
+    let total_pages = total_jobs.div_ceil(per_page).max(1);
+    let page = query.page.unwrap_or(1).clamp(1, total_pages);
+    let start = (page - 1) * per_page;
+    let end = (start + per_page).min(total_jobs);
+    let rows = records[start..end]
+        .iter()
+        .map(jobs_index_row_view)
+        .collect::<Vec<_>>();
+    let has_jobs = !rows.is_empty();
+    let start_item = if has_jobs { start + 1 } else { 0 };
+    let end_item = end;
+
+    let html = JobsIndexTemplate {
+        rows,
+        has_jobs,
+        total_jobs,
+        page,
+        total_pages,
+        start_item,
+        end_item,
+        has_prev: page > 1,
+        has_next: page < total_pages,
+        prev_url: jobs_page_url(page.saturating_sub(1).max(1), per_page),
+        next_url: jobs_page_url((page + 1).min(total_pages), per_page),
+    }
+    .render()
+    .map_err(|err| anyhow::anyhow!("failed to render jobs index template: {err}"))?;
+
+    Ok(Html(html))
+}
+
+fn jobs_index_row_view(record: &JobRecord) -> JobsIndexRowView {
+    let id = record.id.to_string();
+    let page = record
+        .document_page
+        .map(|page| {
+            record
+                .document_pages
+                .map(|pages| format!("{page}/{pages}"))
+                .unwrap_or_else(|| page.to_string())
+        })
+        .unwrap_or_default();
+    let has_page = !page.is_empty();
+
+    JobsIndexRowView {
+        json_url: format!("/v1/jobs/{id}"),
+        html_url: format!("/v1/jobs/{id}/html"),
+        id,
+        status: job_status_label(&record.status).to_string(),
+        input: job_input_label(record),
+        kind: record.input_kind.clone(),
+        page,
+        has_page,
+        updated_at: record.updated_at.to_string(),
+        created_at: record.created_at.to_string(),
+        has_error: record.error.is_some(),
+    }
+}
+
+fn jobs_page_url(page: usize, per_page: usize) -> String {
+    format!("/jobs?page={page}&per_page={per_page}")
 }
 
 fn job_html_detection_views(result: &OcrResult) -> Vec<JobHtmlDetectionView> {

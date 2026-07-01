@@ -98,12 +98,20 @@ use askama::Template;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 0.95em;
     }
+    .links {
+      margin: 0 0 22px;
+    }
+    .links a {
+      color: #2563eb;
+      font-weight: 650;
+    }
   </style>
 </head>
 <body>
   <main>
     <h1>Unlimited-OCR Inference</h1>
     <p>Upload an image or PDF and queue OCR inference on the local ONNX worker pool.</p>
+    <p class="links"><a href="/jobs">View jobs</a></p>
 
     <form method="post" action="/infer-form" enctype="multipart/form-data">
       <div>
@@ -148,6 +156,196 @@ pub struct IndexTemplate {
     pub status_url: String,
     pub has_status_url: bool,
     pub error: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct JobsIndexRowView {
+    pub id: String,
+    pub status: String,
+    pub input: String,
+    pub kind: String,
+    pub page: String,
+    pub has_page: bool,
+    pub updated_at: String,
+    pub created_at: String,
+    pub html_url: String,
+    pub json_url: String,
+    pub has_error: bool,
+}
+
+#[derive(Template)]
+#[template(
+    source = r###"
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OCR Jobs</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f6f8;
+      color: #1f2933;
+    }
+    body {
+      margin: 0;
+      padding: 28px;
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+    header {
+      margin-bottom: 20px;
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid #d9dee7;
+      padding-bottom: 16px;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+    p {
+      margin: 0;
+      color: #52606d;
+    }
+    a {
+      color: #2563eb;
+    }
+    .panel {
+      border: 1px solid #d9dee7;
+      border-radius: 8px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+    .table-wrap {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th,
+    td {
+      border-bottom: 1px solid #e5e9f0;
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+    th {
+      background: #f8fafc;
+      color: #323f4b;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+    td.id,
+    td.input {
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    .status {
+      font-weight: 700;
+    }
+    .error {
+      color: #8a1f1f;
+    }
+    .pager {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px;
+      color: #52606d;
+    }
+    .pager-links {
+      display: flex;
+      gap: 12px;
+    }
+    .empty {
+      padding: 18px;
+      color: #52606d;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>OCR Jobs</h1>
+        <p>{{ total_jobs }} retained jobs &middot; page {{ page }} of {{ total_pages }}</p>
+      </div>
+      <a href="/">Submit</a>
+    </header>
+
+    <section class="panel">
+      {% if has_jobs %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Job</th>
+              <th>Status</th>
+              <th>Input</th>
+              <th>Kind</th>
+              <th>Page</th>
+              <th>Updated</th>
+              <th>Created</th>
+              <th>Links</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              <td class="id"><a href="{{ row.html_url }}">{{ row.id }}</a></td>
+              <td class="status{% if row.has_error %} error{% endif %}">{{ row.status }}</td>
+              <td class="input">{{ row.input }}</td>
+              <td>{{ row.kind }}</td>
+              <td>{% if row.has_page %}{{ row.page }}{% endif %}</td>
+              <td>{{ row.updated_at }}</td>
+              <td>{{ row.created_at }}</td>
+              <td><a href="{{ row.html_url }}">HTML</a> &middot; <a href="{{ row.json_url }}">JSON</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty">No retained jobs yet.</div>
+      {% endif %}
+      <div class="pager">
+        <span>Showing {{ start_item }}-{{ end_item }} of {{ total_jobs }}</span>
+        <span class="pager-links">
+          {% if has_prev %}<a href="{{ prev_url }}">Previous</a>{% endif %}
+          {% if has_next %}<a href="{{ next_url }}">Next</a>{% endif %}
+        </span>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
+"###,
+    ext = "html"
+)]
+pub struct JobsIndexTemplate {
+    pub rows: Vec<JobsIndexRowView>,
+    pub has_jobs: bool,
+    pub total_jobs: usize,
+    pub page: usize,
+    pub total_pages: usize,
+    pub start_item: usize,
+    pub end_item: usize,
+    pub has_prev: bool,
+    pub has_next: bool,
+    pub prev_url: String,
+    pub next_url: String,
 }
 
 #[derive(Debug, Clone)]

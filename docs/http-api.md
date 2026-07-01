@@ -30,6 +30,12 @@ curl http://127.0.0.1:3000/metrics
 
 The metrics response includes HTTP request counts and latency, queue depth, job/inference counts and latency, worker restarts, model load time, webhook failures, cleanup failures, retained jobs, Linux process RSS memory when available, and aggregate NVIDIA GPU memory when `nvidia-smi` is available.
 
+Human-readable retained jobs table:
+
+```bash
+curl 'http://127.0.0.1:3000/jobs?page=1&per_page=25'
+```
+
 OpenAPI document:
 
 ```bash

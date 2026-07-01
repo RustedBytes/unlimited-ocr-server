@@ -5,7 +5,7 @@ use axum::body::{Body, to_bytes};
 use axum::http::{HeaderName, HeaderValue, header};
 use axum::middleware;
 use serde_json::json;
-use time::OffsetDateTime;
+use time::{Duration as TimeDuration, OffsetDateTime};
 use tokio::sync::RwLock;
 use tower::ServiceExt;
 use tower_http::timeout::TimeoutLayer;
@@ -64,6 +64,7 @@ fn index_template_contains_unlimited_ocr_copy_and_error() {
 
     assert!(html.contains("Unlimited-OCR Inference"));
     assert!(html.contains("Prompt (optional)"));
+    assert!(html.contains("href=\"/jobs\""));
     assert!(html.contains("bad request"));
 }
 
@@ -81,6 +82,7 @@ fn openapi_document_describes_core_paths() {
     let document = openapi_document();
 
     assert_eq!(document["openapi"], "3.1.0");
+    assert!(document["paths"]["/jobs"].is_object());
     assert!(document["paths"]["/v1/infer"].is_object());
     assert!(document["paths"]["/v1/jobs/{id}/html"].is_object());
     assert!(document["paths"]["/metrics"].is_object());
@@ -415,6 +417,71 @@ async fn job_html_route_returns_404_for_unknown_job() {
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
+#[tokio::test]
+async fn jobs_index_route_paginates_recent_jobs() {
+    let state = test_state(false, Vec::new());
+    let now = OffsetDateTime::now_utc();
+    let old = listed_job(
+        Uuid::from_u128(1),
+        "old.pdf#page=1",
+        JobStatus::Succeeded,
+        now - TimeDuration::seconds(2),
+    );
+    let middle = listed_job(
+        Uuid::from_u128(2),
+        "middle.pdf#page=1",
+        JobStatus::Running,
+        now - TimeDuration::seconds(1),
+    );
+    let newest = listed_job(Uuid::from_u128(3), "new.pdf#page=1", JobStatus::Queued, now);
+    {
+        let mut jobs = state.jobs.write().await;
+        jobs.insert(old.id, old);
+        jobs.insert(middle.id, middle);
+        jobs.insert(newest.id, newest);
+    }
+    let app = router(state);
+
+    let first = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/jobs?page=1&per_page=2")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let first_html = response_text(first).await;
+    assert!(first_html.contains("OCR Jobs"));
+    assert!(first_html.contains("3 retained jobs"));
+    assert!(first_html.contains("new.pdf#page=1"));
+    assert!(first_html.contains("middle.pdf#page=1"));
+    assert!(!first_html.contains("old.pdf#page=1"));
+    assert!(first_html.contains("Next"));
+    assert!(first_html.contains("page=2"));
+    assert!(first_html.contains("per_page=2"));
+
+    let second = app
+        .oneshot(
+            Request::builder()
+                .uri("/jobs?page=2&per_page=2")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let second_html = response_text(second).await;
+    assert!(second_html.contains("page 2 of 2"));
+    assert!(second_html.contains("old.pdf#page=1"));
+    assert!(!second_html.contains("middle.pdf#page=1"));
+    assert!(second_html.contains("/v1/jobs/00000000-0000-0000-0000-000000000001/html"));
+    assert!(second_html.contains("/v1/jobs/00000000-0000-0000-0000-000000000001"));
+    assert!(second_html.contains("Previous"));
+    assert!(second_html.contains("page=1"));
+    assert!(second_html.contains("per_page=2"));
+}
+
 fn test_state(allow_local_paths: bool, local_path_roots: Vec<PathBuf>) -> AppState {
     let (queue_tx, _queue_rx) = bounded(1);
     AppState {
@@ -573,6 +640,24 @@ fn succeeded_job_with_table() -> JobRecord {
         }),
         error: None,
     }
+}
+
+fn listed_job(
+    id: Uuid,
+    filename: &str,
+    status: JobStatus,
+    updated_at: OffsetDateTime,
+) -> JobRecord {
+    let mut job = succeeded_job_with_table();
+    job.id = id;
+    job.status = status;
+    job.created_at = updated_at - TimeDuration::seconds(10);
+    job.updated_at = updated_at;
+    job.filename = Some(filename.to_string());
+    job.document_filename = Some(filename.to_string());
+    job.document_page = Some(1);
+    job.document_pages = Some(3);
+    job
 }
 
 const ONE_BY_ONE_PNG: &[u8] = &[
