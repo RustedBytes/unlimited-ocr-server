@@ -97,11 +97,11 @@ fn keeps_configured_cors_origins() {
 fn model_variant_selects_matching_default_model_path() {
     assert_eq!(
         ModelVariant::UnlimitedOcr.default_model_path(),
-        PathBuf::from("Unlimited-OCR/onnx/unlimited_ocr.onnx")
+        PathBuf::from("Unlimited-OCR/onnx/unlimited_ocr_prefill.onnx")
     );
     assert_eq!(
         ModelVariant::Custom.default_model_path(),
-        PathBuf::from("Unlimited-OCR/onnx/unlimited_ocr.onnx")
+        PathBuf::from("Unlimited-OCR/onnx/unlimited_ocr_prefill.onnx")
     );
 }
 

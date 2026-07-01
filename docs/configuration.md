@@ -29,7 +29,7 @@ rate_limit_requests_per_minute = 0
 [model]
 variant = "unlimited_ocr"
 image_size = 1024
-# path = "Unlimited-OCR/onnx/unlimited_ocr.onnx"
+# path = "Unlimited-OCR/onnx/unlimited_ocr_prefill.onnx"
 
 [queue]
 model_pool_size = 1

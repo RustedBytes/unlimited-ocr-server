@@ -1,6 +1,6 @@
 pub(super) const DEFAULT_ADDR: &str = "127.0.0.1:3000";
 pub(super) const DEFAULT_CONFIG_PATH: &str = "config.toml";
-pub(super) const DEFAULT_MODEL_PATH: &str = "Unlimited-OCR/onnx/unlimited_ocr.onnx";
+pub(super) const DEFAULT_MODEL_PATH: &str = "Unlimited-OCR/onnx/unlimited_ocr_prefill.onnx";
 pub(super) const DEFAULT_MODEL_IMAGE_SIZE: u32 = 1024;
 pub(super) const DEFAULT_DATA_DIR: &str = "data";
 pub(super) const DEFAULT_QUEUE_SIZE: usize = 128;

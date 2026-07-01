@@ -23,7 +23,7 @@ variant = "unlimited_ocr"
 image_size = 1024
 
 # Optional explicit ONNX path. When set, this overrides variant path selection.
-# path = "Unlimited-OCR/onnx/unlimited_ocr.onnx"
+# path = "Unlimited-OCR/onnx/unlimited_ocr_prefill.onnx"
 
 # Optional text decode ONNX path for KV-cache generation. When omitted and
 # `path` contains "prefill", the server auto-detects a sibling path with
