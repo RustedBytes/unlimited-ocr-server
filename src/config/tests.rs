@@ -61,6 +61,11 @@ fn cpu_execution_provider_uses_parallel_worker_default() {
 }
 
 #[test]
+fn default_body_limit_allows_100_mib_uploads() {
+    assert_eq!(DEFAULT_BODY_LIMIT_BYTES, 100 * 1024 * 1024);
+}
+
+#[test]
 fn rejects_negative_inference_device_id() {
     let err = optional_non_negative_i32_setting(SettingSource::new(
         "INFERENCE_DEVICE_ID_UNUSED_IN_TEST",

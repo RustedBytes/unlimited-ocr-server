@@ -4,7 +4,7 @@ pub(super) const DEFAULT_MODEL_PATH: &str = "Unlimited-OCR/onnx/unlimited_ocr_pr
 pub(super) const DEFAULT_MODEL_IMAGE_SIZE: u32 = 1024;
 pub(super) const DEFAULT_DATA_DIR: &str = "data";
 pub(super) const DEFAULT_QUEUE_SIZE: usize = 128;
-pub(super) const DEFAULT_BODY_LIMIT_BYTES: usize = 32 * 1024 * 1024;
+pub(super) const DEFAULT_BODY_LIMIT_BYTES: usize = 100 * 1024 * 1024;
 pub(super) const DEFAULT_RUST_LOG: &str = "info,ort=warn";
 pub(super) const DEFAULT_MAX_NEW_TOKENS: usize = 256;
 pub(super) const DEFAULT_EXECUTION_PROVIDER: &str = "auto";

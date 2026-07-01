@@ -33,7 +33,7 @@ image_size = 1024
 [queue]
 model_pool_size = 1
 queue_size = 128
-body_limit_bytes = 33554432
+body_limit_bytes = 104857600
 
 # Set to 0 to disable whole-request timeout enforcement.
 request_timeout_seconds = 60

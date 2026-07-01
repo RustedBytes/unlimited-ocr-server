@@ -34,7 +34,7 @@ image_size = 1024
 [queue]
 model_pool_size = 1
 queue_size = 128
-body_limit_bytes = 33554432
+body_limit_bytes = 104857600
 request_timeout_seconds = 60
 
 [retention]
@@ -117,7 +117,7 @@ Environment variables override TOML values when set:
 - `RATE_LIMIT_REQUESTS_PER_MINUTE`: process-wide request limit; set to `0` to disable rate limiting
 - `MODEL_POOL_SIZE`: number of model workers
 - `QUEUE_SIZE`: queued job capacity
-- `BODY_LIMIT_BYTES`: multipart upload limit
+- `BODY_LIMIT_BYTES`: whole HTTP request body limit for multipart uploads, default `104857600`
 - `REQUEST_TIMEOUT_SECONDS`: whole HTTP request timeout; set to `0` to disable timeout enforcement
 - `JOB_RETENTION_LIMIT`: maximum in-memory job records kept queryable through `/v1/jobs/{id}`
 - `METADATA_RETENTION_LIMIT`: maximum latest metadata records kept when JSONL files are compacted at startup; set to `0` to disable compaction
@@ -178,7 +178,7 @@ Rate limiting is also disabled by default. When `server.rate_limit_requests_per_
 
 Request validation happens before the image is decoded for inference:
 
-- `queue.body_limit_bytes` limits multipart upload size.
+- `queue.body_limit_bytes` limits the whole multipart request body. Keep it slightly above the largest file size you want to accept so multipart headers and fields fit too.
 - `queue.request_timeout_seconds` limits total HTTP request handling time and returns `408 Request Timeout`.
 - `validation.max_image_width` and `validation.max_image_height` reject oversized image dimensions.
 - `validation.max_pdf_pages` rejects PDFs with too many pages before rendering.
