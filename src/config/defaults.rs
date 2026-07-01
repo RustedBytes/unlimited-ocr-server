@@ -7,6 +7,7 @@ pub(super) const DEFAULT_QUEUE_SIZE: usize = 128;
 pub(super) const DEFAULT_BODY_LIMIT_BYTES: usize = 100 * 1024 * 1024;
 pub(super) const DEFAULT_RUST_LOG: &str = "info,ort=warn";
 pub(super) const DEFAULT_MAX_NEW_TOKENS: usize = 256;
+pub(super) const DEFAULT_TEMPERATURE: f32 = 0.0;
 pub(super) const DEFAULT_EXECUTION_PROVIDER: &str = "auto";
 pub(super) const DEFAULT_JOB_RETENTION_LIMIT: usize = 1_000;
 pub(super) const DEFAULT_METADATA_RETENTION_LIMIT: usize = 10_000;

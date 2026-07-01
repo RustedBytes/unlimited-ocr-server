@@ -18,16 +18,17 @@ use self::{
         DEFAULT_JOB_TIMEOUT_SECONDS, DEFAULT_MAX_IMAGE_HEIGHT, DEFAULT_MAX_IMAGE_WIDTH,
         DEFAULT_MAX_NEW_TOKENS, DEFAULT_MAX_PDF_PAGES, DEFAULT_METADATA_RETENTION_LIMIT,
         DEFAULT_MODEL_IMAGE_SIZE, DEFAULT_PDF_RENDER_DPI, DEFAULT_QUEUE_SIZE,
-        DEFAULT_REQUEST_TIMEOUT_SECONDS, DEFAULT_RUST_LOG, DEFAULT_WEBHOOK_CONNECT_TIMEOUT_SECONDS,
-        DEFAULT_WEBHOOK_INITIAL_BACKOFF_MS, DEFAULT_WEBHOOK_MAX_ATTEMPTS,
-        DEFAULT_WEBHOOK_TIMEOUT_SECONDS,
+        DEFAULT_REQUEST_TIMEOUT_SECONDS, DEFAULT_RUST_LOG, DEFAULT_TEMPERATURE,
+        DEFAULT_WEBHOOK_CONNECT_TIMEOUT_SECONDS, DEFAULT_WEBHOOK_INITIAL_BACKOFF_MS,
+        DEFAULT_WEBHOOK_MAX_ATTEMPTS, DEFAULT_WEBHOOK_TIMEOUT_SECONDS,
     },
     file::FileConfig,
     model_variant::{ModelPathSelection, parse_model_variant},
     settings::{
         SettingSource, bool_setting, env_path, execution_providers_setting,
-        optional_non_negative_i32_setting, path_list_setting, path_setting, secret_setting,
-        string_list_setting, string_setting, u32_setting, u64_setting, usize_setting,
+        non_negative_f32_setting, optional_non_negative_i32_setting, path_list_setting,
+        path_setting, secret_setting, string_list_setting, string_setting, u32_setting,
+        u64_setting, usize_setting,
     },
 };
 
@@ -60,6 +61,7 @@ pub struct Config {
     pub body_limit_bytes: usize,
     pub rust_log: String,
     pub max_new_tokens: usize,
+    pub temperature: f32,
     pub job_timeout_seconds: u64,
     pub request_timeout_seconds: u64,
     pub webhook_timeout_seconds: u64,
@@ -202,6 +204,10 @@ impl Config {
                 DEFAULT_MAX_NEW_TOKENS,
             )?
             .max(1),
+            temperature: non_negative_f32_setting(
+                SettingSource::new("TEMPERATURE", generation.temperature),
+                DEFAULT_TEMPERATURE,
+            )?,
             job_timeout_seconds: u64_setting(
                 SettingSource::new("JOB_TIMEOUT_SECONDS", generation.job_timeout_seconds),
                 DEFAULT_JOB_TIMEOUT_SECONDS,

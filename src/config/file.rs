@@ -77,6 +77,7 @@ pub(super) struct QueueConfig {
 #[derive(Debug, Default, Deserialize)]
 pub(super) struct GenerationConfig {
     pub(super) max_new_tokens: Option<usize>,
+    pub(super) temperature: Option<f32>,
     pub(super) job_timeout_seconds: Option<u64>,
     pub(super) webhook_timeout_seconds: Option<u64>,
     pub(super) webhook_connect_timeout_seconds: Option<u64>,

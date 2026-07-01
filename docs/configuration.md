@@ -49,6 +49,7 @@ pdf_render_dpi = 200
 
 [generation]
 max_new_tokens = 256
+temperature = 0.0
 job_timeout_seconds = 300
 webhook_timeout_seconds = 10
 webhook_connect_timeout_seconds = 5
@@ -130,6 +131,7 @@ Environment variables override TOML values when set:
 - `DECODE_MODEL_PATH`: optional text decode ONNX path for KV-cache generation
 - `MODEL_IMAGE_SIZE`: square image tensor size, default `1024`
 - `MAX_NEW_TOKENS`: maximum decoder tokens per generation
+- `TEMPERATURE`: generation sampling temperature; `0` uses deterministic argmax decoding
 - `JOB_TIMEOUT_SECONDS`: per-job inference timeout; set to `0` to disable timeout enforcement
 - `WEBHOOK_TIMEOUT_SECONDS`: total outbound webhook request timeout; set to `0` to disable
 - `WEBHOOK_CONNECT_TIMEOUT_SECONDS`: outbound webhook connection timeout; set to `0` to disable

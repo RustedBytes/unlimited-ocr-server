@@ -391,6 +391,7 @@ fn test_state(allow_local_paths: bool, local_path_roots: Vec<PathBuf>) -> AppSta
             request_timeout_seconds: 60,
             rust_log: "info".to_string(),
             max_new_tokens: 1,
+            temperature: 0.0,
             job_timeout_seconds: 300,
             webhook_timeout_seconds: 10,
             webhook_connect_timeout_seconds: 5,

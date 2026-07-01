@@ -35,7 +35,7 @@ use self::{
     prompt::{
         EOS_TOKEN_ID, PromptInputs, build_image_prompt, decode_generated_text, prompt_from_task,
     },
-    tensor::{argmax_token_from_output_at_position, tensor_metadata_f32},
+    tensor::{sample_token_from_output_at_position, tensor_metadata_f32},
 };
 
 const TASK_TOKEN: &str = "unlimited_ocr";
@@ -82,6 +82,7 @@ pub struct UnlimitedOcrWorker {
     input_metadata: InputMetadata,
     decode_input_metadata: Option<DecodeInputMetadata>,
     max_new_tokens: usize,
+    temperature: f32,
     image_size: u32,
     execution_providers: Vec<String>,
     inference_device_id: Option<i32>,
@@ -149,17 +150,19 @@ impl UnlimitedOcrWorker {
             input_metadata,
             decode_input_metadata,
             max_new_tokens: config.max_new_tokens,
+            temperature: config.temperature,
             image_size: config.model_image_size,
             execution_providers: config.execution_providers.clone(),
             inference_device_id: config.inference_device_id,
         };
 
         info!(
-            "Unlimited-OCR worker initialized worker_id={} backend={} image_size={} max_new_tokens={} execution_providers={:?} elapsed_ms={}",
+            "Unlimited-OCR worker initialized worker_id={} backend={} image_size={} max_new_tokens={} temperature={} execution_providers={:?} elapsed_ms={}",
             id,
             worker.backend,
             worker.image_size,
             worker.max_new_tokens,
+            worker.temperature,
             worker.execution_providers,
             started.elapsed().as_millis()
         );
@@ -183,6 +186,7 @@ impl UnlimitedOcrWorker {
             input_metadata: self.input_metadata.clone(),
             decode_input_metadata: self.decode_input_metadata.clone(),
             max_new_tokens: self.max_new_tokens,
+            temperature: self.temperature,
             image_size: self.image_size,
             execution_providers: self.execution_providers.clone(),
             inference_device_id: self.inference_device_id,
@@ -321,19 +325,21 @@ impl UnlimitedOcrWorker {
     fn generate(&mut self, mut state: GenerationState<'_>) -> anyhow::Result<Vec<i64>> {
         if self.can_generate_with_kv_cache() {
             info!(
-                "Unlimited-OCR generation mode selected worker_id={} mode=kv_cache prompt_tokens={} max_new_tokens={}",
+                "Unlimited-OCR generation mode selected worker_id={} mode=kv_cache prompt_tokens={} max_new_tokens={} temperature={}",
                 self.id,
                 state.input_ids.len(),
-                self.max_new_tokens
+                self.max_new_tokens,
+                self.temperature
             );
             return self.generate_with_kv_cache(state);
         }
 
         info!(
-            "Unlimited-OCR generation mode selected worker_id={} mode=full_sequence prompt_tokens={} max_new_tokens={}",
+            "Unlimited-OCR generation mode selected worker_id={} mode=full_sequence prompt_tokens={} max_new_tokens={} temperature={}",
             self.id,
             state.input_ids.len(),
-            self.max_new_tokens
+            self.max_new_tokens,
+            self.temperature
         );
         let mut generated = Vec::new();
         let max_steps = generation_step_limit(
@@ -486,7 +492,8 @@ impl UnlimitedOcrWorker {
         let logits = outputs
             .get("logits")
             .ok_or_else(|| anyhow!("ONNX output `logits` is missing"))?;
-        let next_token_id = argmax_token_from_output_at_position(logits, "logits", position)?;
+        let next_token_id =
+            sample_token_from_output_at_position(logits, "logits", position, self.temperature)?;
         let cache = collect_present_cache_trimmed(
             &mut outputs,
             &self.input_metadata.kv_cache,
@@ -524,7 +531,8 @@ impl UnlimitedOcrWorker {
         let logits = outputs
             .get("logits")
             .ok_or_else(|| anyhow!("ONNX output `logits` is missing"))?;
-        let next_token_id = argmax_token_from_output_at_position(logits, "logits", 0)?;
+        let next_token_id =
+            sample_token_from_output_at_position(logits, "logits", 0, self.temperature)?;
         let cache = collect_present_cache(&mut outputs, &metadata.kv_cache)?;
         Ok((next_token_id, cache))
     }
@@ -548,7 +556,7 @@ impl UnlimitedOcrWorker {
             .run(feeds)
             .map_err(|err| anyhow!("Unlimited-OCR ONNX inference failed: {err}"))?;
 
-        argmax_token_from_output_at_position(&outputs[0], "logits", position)
+        sample_token_from_output_at_position(&outputs[0], "logits", position, self.temperature)
     }
 
     fn output_metadata(&self, image_array: &[f32], generated_tokens: usize) -> Vec<TensorMetadata> {

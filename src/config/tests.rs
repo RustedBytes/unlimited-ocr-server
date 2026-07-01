@@ -8,8 +8,8 @@ use super::{
     file::FileConfig,
     model_variant::parse_model_variant_value,
     settings::{
-        SettingSource, execution_providers_setting, optional_non_negative_i32_setting,
-        string_list_setting,
+        SettingSource, execution_providers_setting, non_negative_f32_setting,
+        optional_non_negative_i32_setting, string_list_setting,
     },
 };
 
@@ -63,6 +63,25 @@ fn cpu_execution_provider_uses_parallel_worker_default() {
 #[test]
 fn default_body_limit_allows_100_mib_uploads() {
     assert_eq!(DEFAULT_BODY_LIMIT_BYTES, 100 * 1024 * 1024);
+}
+
+#[test]
+fn default_temperature_uses_deterministic_decoding() {
+    assert_eq!(DEFAULT_TEMPERATURE, 0.0);
+}
+
+#[test]
+fn rejects_negative_temperature() {
+    let err = non_negative_f32_setting(
+        SettingSource::new("TEMPERATURE_UNUSED_IN_TEST", Some(-0.1)),
+        DEFAULT_TEMPERATURE,
+    )
+    .unwrap_err();
+
+    assert!(
+        err.to_string()
+            .contains("TEMPERATURE_UNUSED_IN_TEST has invalid value `-0.1`")
+    );
 }
 
 #[test]
@@ -156,6 +175,7 @@ pdf_render_dpi = 180
 
 [generation]
 max_new_tokens = 32
+temperature = 0.7
 job_timeout_seconds = 45
 webhook_timeout_seconds = 12
 webhook_connect_timeout_seconds = 3
@@ -209,6 +229,7 @@ rust_log = "debug"
     assert_eq!(validation.max_pdf_pages, Some(12));
     assert_eq!(validation.pdf_render_dpi, Some(180));
     assert_eq!(generation.max_new_tokens, Some(32));
+    assert_eq!(generation.temperature, Some(0.7));
     assert_eq!(generation.job_timeout_seconds, Some(45));
     assert_eq!(generation.webhook_timeout_seconds, Some(12));
     assert_eq!(generation.webhook_connect_timeout_seconds, Some(3));

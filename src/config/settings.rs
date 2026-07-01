@@ -59,6 +59,37 @@ pub(super) fn u32_setting(source: SettingSource<u32>, default: u32) -> anyhow::R
     }
 }
 
+pub(super) fn non_negative_f32_setting(
+    source: SettingSource<f32>,
+    default: f32,
+) -> anyhow::Result<f32> {
+    match env::var(source.key) {
+        Ok(value) => parse_non_negative_f32(source.key, &value),
+        Err(_) => {
+            let value = source.file_value.unwrap_or(default);
+            validate_non_negative_f32(source.key, value)
+        }
+    }
+}
+
+fn parse_non_negative_f32(key: &str, value: &str) -> anyhow::Result<f32> {
+    let parsed = value
+        .parse()
+        .map_err(|err| anyhow!("{key} has invalid value `{value}`: {err}"))?;
+
+    validate_non_negative_f32(key, parsed)
+}
+
+fn validate_non_negative_f32(key: &str, value: f32) -> anyhow::Result<f32> {
+    if !value.is_finite() || value < 0.0 {
+        return Err(anyhow!(
+            "{key} has invalid value `{value}`; expected a finite number 0 or greater"
+        ));
+    }
+
+    Ok(value)
+}
+
 pub(super) fn optional_non_negative_i32_setting(
     source: SettingSource<i32>,
 ) -> anyhow::Result<Option<i32>> {

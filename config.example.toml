@@ -52,6 +52,7 @@ max_image_height = 8192
 
 [generation]
 max_new_tokens = 32768
+temperature = 0.0
 
 # Set to 0 to disable per-job timeout enforcement.
 job_timeout_seconds = 600

@@ -107,7 +107,7 @@ async fn serve(config: Arc<Config>, state: AppState) -> anyhow::Result<()> {
 
 fn log_loaded_config(config: &Config) {
     debug!(
-        "config loaded addr={} model_path={} decode_model_path={} model_variant={} model_image_size={} data_dir={} images_dir={} metadata_dir={} workers={} queue_size={} body_limit_bytes={} request_timeout_seconds={} max_pdf_pages={} pdf_render_dpi={} api_key_auth_enabled={} rate_limit_requests_per_minute={} max_new_tokens={} job_timeout_seconds={} webhook_timeout_seconds={} webhook_connect_timeout_seconds={} webhook_max_attempts={} webhook_initial_backoff_ms={} webhook_signing_enabled={} allow_private_webhook_urls={} execution_providers={:?} rust_log={}",
+        "config loaded addr={} model_path={} decode_model_path={} model_variant={} model_image_size={} data_dir={} images_dir={} metadata_dir={} workers={} queue_size={} body_limit_bytes={} request_timeout_seconds={} max_pdf_pages={} pdf_render_dpi={} api_key_auth_enabled={} rate_limit_requests_per_minute={} max_new_tokens={} temperature={} job_timeout_seconds={} webhook_timeout_seconds={} webhook_connect_timeout_seconds={} webhook_max_attempts={} webhook_initial_backoff_ms={} webhook_signing_enabled={} allow_private_webhook_urls={} execution_providers={:?} rust_log={}",
         config.addr,
         config.model_path.display(),
         config
@@ -129,6 +129,7 @@ fn log_loaded_config(config: &Config) {
         !config.api_keys.is_empty(),
         config.rate_limit_requests_per_minute,
         config.max_new_tokens,
+        config.temperature,
         config.job_timeout_seconds,
         config.webhook_timeout_seconds,
         config.webhook_connect_timeout_seconds,
@@ -143,7 +144,7 @@ fn log_loaded_config(config: &Config) {
 
 fn log_server_listening(config: &Config) {
     info!(
-        "server listening addr={} workers={} model={} decode_model={} model_variant={} model_image_size={} data_dir={} queue_size={} body_limit_bytes={} request_timeout_seconds={} max_pdf_pages={} pdf_render_dpi={} api_key_auth_enabled={} rate_limit_requests_per_minute={} max_new_tokens={} job_timeout_seconds={} webhook_timeout_seconds={} webhook_connect_timeout_seconds={} webhook_max_attempts={} webhook_initial_backoff_ms={} webhook_signing_enabled={} allow_private_webhook_urls={} execution_providers={:?}",
+        "server listening addr={} workers={} model={} decode_model={} model_variant={} model_image_size={} data_dir={} queue_size={} body_limit_bytes={} request_timeout_seconds={} max_pdf_pages={} pdf_render_dpi={} api_key_auth_enabled={} rate_limit_requests_per_minute={} max_new_tokens={} temperature={} job_timeout_seconds={} webhook_timeout_seconds={} webhook_connect_timeout_seconds={} webhook_max_attempts={} webhook_initial_backoff_ms={} webhook_signing_enabled={} allow_private_webhook_urls={} execution_providers={:?}",
         config.addr,
         config.workers,
         config.model_path.display(),
@@ -163,6 +164,7 @@ fn log_server_listening(config: &Config) {
         !config.api_keys.is_empty(),
         config.rate_limit_requests_per_minute,
         config.max_new_tokens,
+        config.temperature,
         config.job_timeout_seconds,
         config.webhook_timeout_seconds,
         config.webhook_connect_timeout_seconds,
