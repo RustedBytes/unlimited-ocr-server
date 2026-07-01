@@ -55,8 +55,11 @@ run without editing TOML:
 MODEL_PATH=Unlimited-OCR/onnx/unlimited_ocr_prefill.onnx \
 DECODE_MODEL_PATH=Unlimited-OCR/onnx/unlimited_ocr_decode.onnx \
 EXECUTION_PROVIDERS=cuda,cpu \
+INFERENCE_DEVICE_ID=0 \
 bash run_podman.sh
 ```
+
+Omit `INFERENCE_DEVICE_ID` to let ONNX Runtime use the provider default device.
 
 To compare CPU and CUDA on the same input image, build the GPU image first and
 run:

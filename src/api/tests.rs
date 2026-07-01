@@ -400,6 +400,7 @@ fn test_state(allow_local_paths: bool, local_path_roots: Vec<PathBuf>) -> AppSta
             webhooks_dead_letter_jsonl: PathBuf::from("data/metadata/webhooks_dead_letter.jsonl"),
             allow_private_webhook_urls: false,
             execution_providers: vec!["cpu".to_string()],
+            inference_device_id: None,
         }),
         queue_tx,
         jobs: Arc::new(RwLock::new(HashMap::new())),

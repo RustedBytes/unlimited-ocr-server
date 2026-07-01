@@ -7,7 +7,10 @@ use super::*;
 use super::{
     file::FileConfig,
     model_variant::parse_model_variant_value,
-    settings::{execution_providers_setting, string_list_setting},
+    settings::{
+        SettingSource, execution_providers_setting, optional_non_negative_i32_setting,
+        string_list_setting,
+    },
 };
 
 #[test]
@@ -55,6 +58,20 @@ fn cpu_execution_provider_uses_parallel_worker_default() {
     let workers = default_worker_count_for_execution_providers(&["cpu".to_string()]);
 
     assert!((1..=4).contains(&workers));
+}
+
+#[test]
+fn rejects_negative_inference_device_id() {
+    let err = optional_non_negative_i32_setting(SettingSource::new(
+        "INFERENCE_DEVICE_ID_UNUSED_IN_TEST",
+        Some(-1),
+    ))
+    .unwrap_err();
+
+    assert!(
+        err.to_string()
+            .contains("INFERENCE_DEVICE_ID_UNUSED_IN_TEST has invalid value `-1`")
+    );
 }
 
 #[test]
@@ -144,6 +161,7 @@ allow_private_webhook_urls = true
 
 [runtime]
 execution_providers = ["coreml-gpu", "xnnpack"]
+device_id = 1
 
 [logging]
 rust_log = "debug"
@@ -200,6 +218,7 @@ rust_log = "debug"
         runtime.execution_providers,
         Some(vec!["coreml-gpu".to_string(), "xnnpack".to_string()])
     );
+    assert_eq!(runtime.device_id, Some(1));
     assert_eq!(logging.rust_log.as_deref(), Some("debug"));
 }
 

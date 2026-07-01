@@ -84,6 +84,7 @@ pub struct UnlimitedOcrWorker {
     max_new_tokens: usize,
     image_size: u32,
     execution_providers: Vec<String>,
+    inference_device_id: Option<i32>,
 }
 
 struct GenerationState<'a> {
@@ -108,7 +109,11 @@ impl UnlimitedOcrWorker {
 
         let devices = detected_devices(id)?;
         let session_started = Instant::now();
-        let session = load_session(&config.model_path, &config.execution_providers)?;
+        let session = load_session(
+            &config.model_path,
+            &config.execution_providers,
+            config.inference_device_id,
+        )?;
         let input_metadata = inspect_input_metadata(&session)?;
         validate_image_size(&input_metadata, config.model_image_size)?;
         log_kv_cache_capability(id, &input_metadata);
@@ -136,12 +141,17 @@ impl UnlimitedOcrWorker {
             session: Some(session),
             decode_session,
             tokenizer,
-            backend: backend_summary(&config.execution_providers, &devices),
+            backend: backend_summary(
+                &config.execution_providers,
+                config.inference_device_id,
+                &devices,
+            ),
             input_metadata,
             decode_input_metadata,
             max_new_tokens: config.max_new_tokens,
             image_size: config.model_image_size,
             execution_providers: config.execution_providers.clone(),
+            inference_device_id: config.inference_device_id,
         };
 
         info!(
@@ -175,6 +185,7 @@ impl UnlimitedOcrWorker {
             max_new_tokens: self.max_new_tokens,
             image_size: self.image_size,
             execution_providers: self.execution_providers.clone(),
+            inference_device_id: self.inference_device_id,
         }
     }
 
@@ -649,19 +660,28 @@ fn detected_devices(worker_id: usize) -> anyhow::Result<Vec<String>> {
     Ok(devices)
 }
 
-fn backend_summary(execution_providers: &[String], reported_devices: &[String]) -> String {
+fn backend_summary(
+    execution_providers: &[String],
+    inference_device_id: Option<i32>,
+    reported_devices: &[String],
+) -> String {
     let requested = if execution_providers.is_empty() {
         "auto".to_string()
     } else {
         execution_providers.join(",")
     };
+    let configured_device = inference_device_id
+        .map(|device_id| device_id.to_string())
+        .unwrap_or_else(|| "default".to_string());
     let devices = if reported_devices.is_empty() {
         "none".to_string()
     } else {
         reported_devices.join(",")
     };
 
-    format!("ort:requested_execution_providers={requested};reported_devices={devices}")
+    format!(
+        "ort:requested_execution_providers={requested};configured_device_id={configured_device};reported_devices={devices}"
+    )
 }
 
 fn load_decode_session(
@@ -679,7 +699,11 @@ fn load_decode_session(
         worker_id,
         decode_model_path.display()
     );
-    let session = load_session(decode_model_path, &config.execution_providers)?;
+    let session = load_session(
+        decode_model_path,
+        &config.execution_providers,
+        config.inference_device_id,
+    )?;
     let decode_metadata = inspect_decode_input_metadata(&session)?;
     if !prefill_metadata
         .kv_cache

@@ -23,6 +23,7 @@ add_env_if_set MODEL_PATH
 add_env_if_set DECODE_MODEL_PATH
 add_env_if_set CONFIG_PATH
 add_env_if_set EXECUTION_PROVIDERS
+add_env_if_set INFERENCE_DEVICE_ID
 add_env_if_set MAX_NEW_TOKENS
 add_env_if_set RUST_LOG
 add_env_if_set JOB_TIMEOUT_SECONDS

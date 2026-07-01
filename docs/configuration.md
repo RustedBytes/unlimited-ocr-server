@@ -59,6 +59,7 @@ allow_private_webhook_urls = false
 
 [runtime]
 execution_providers = ["auto"]
+# device_id = 0
 
 [logging]
 rust_log = "info,ort=warn"
@@ -83,6 +84,8 @@ Supported `runtime.execution_providers` values:
 
 `auto` is the default. Explicit providers remain opt-in because provider support depends on the exported ONNX graph and local runtime.
 
+`runtime.device_id` selects the ORT device id for execution providers that support explicit device selection. It is currently honored by CUDA. Omit it to use the provider default device.
+
 Build with CUDA support:
 
 ```bash
@@ -94,12 +97,13 @@ Then request CUDA explicitly:
 ```toml
 [runtime]
 execution_providers = ["cuda", "cpu"]
+device_id = 1
 ```
 
 or with the environment:
 
 ```bash
-EXECUTION_PROVIDERS=cuda,cpu cargo run --features cuda
+EXECUTION_PROVIDERS=cuda,cpu INFERENCE_DEVICE_ID=1 cargo run --features cuda
 ```
 
 Environment variables override TOML values when set:
@@ -134,6 +138,7 @@ Environment variables override TOML values when set:
 - `WEBHOOK_SIGNING_SECRET`: HMAC-SHA256 signing secret for webhook bodies; empty disables signatures
 - `ALLOW_PRIVATE_WEBHOOK_URLS`: set to `true` only in trusted deployments that must call local or private webhook targets
 - `EXECUTION_PROVIDERS`: comma-separated provider list, for example `auto` or `coreml,auto`
+- `INFERENCE_DEVICE_ID`: non-negative ORT device id for providers that support explicit device selection, currently CUDA
 - `RUST_LOG`: logging level, for example `debug`
 - `CONFIG_PATH`: explicit TOML config path when `--config` is not set
 

@@ -59,6 +59,36 @@ pub(super) fn u32_setting(source: SettingSource<u32>, default: u32) -> anyhow::R
     }
 }
 
+pub(super) fn optional_non_negative_i32_setting(
+    source: SettingSource<i32>,
+) -> anyhow::Result<Option<i32>> {
+    match env::var(source.key) {
+        Ok(value) => parse_non_negative_i32(source.key, &value).map(Some),
+        Err(_) => source
+            .file_value
+            .map(|value| validate_non_negative_i32(source.key, value))
+            .transpose(),
+    }
+}
+
+fn parse_non_negative_i32(key: &str, value: &str) -> anyhow::Result<i32> {
+    let parsed = value
+        .parse()
+        .map_err(|err| anyhow!("{key} has invalid value `{value}`: {err}"))?;
+
+    validate_non_negative_i32(key, parsed)
+}
+
+fn validate_non_negative_i32(key: &str, value: i32) -> anyhow::Result<i32> {
+    if value < 0 {
+        return Err(anyhow!(
+            "{key} has invalid value `{value}`; expected 0 or greater"
+        ));
+    }
+
+    Ok(value)
+}
+
 pub(super) fn bool_setting(source: SettingSource<bool>, default: bool) -> anyhow::Result<bool> {
     match env::var(source.key) {
         Ok(value) => match value.trim().to_ascii_lowercase().as_str() {

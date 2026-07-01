@@ -53,6 +53,7 @@ fn test_config() -> Config {
         webhooks_dead_letter_jsonl: PathBuf::from("data/metadata/webhooks_dead_letter.jsonl"),
         allow_private_webhook_urls: false,
         execution_providers: vec!["cpu".to_string()],
+        inference_device_id: None,
     }
 }
 

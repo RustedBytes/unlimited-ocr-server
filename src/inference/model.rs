@@ -31,8 +31,12 @@ pub(super) fn tokenizer_path_for_model(model_path: &Path) -> anyhow::Result<Path
     Ok(model_dir.join("tokenizer.json"))
 }
 
-pub(super) fn load_session(path: &Path, execution_providers: &[String]) -> anyhow::Result<Session> {
-    let requested_eps = execution_provider_dispatches(execution_providers);
+pub(super) fn load_session(
+    path: &Path,
+    execution_providers: &[String],
+    inference_device_id: Option<i32>,
+) -> anyhow::Result<Session> {
+    let requested_eps = execution_provider_dispatches(execution_providers, inference_device_id);
     let use_auto_device = execution_providers
         .iter()
         .any(|provider| matches!(provider.as_str(), "auto" | "autodevice"));
@@ -85,14 +89,18 @@ pub(super) fn load_session(path: &Path, execution_providers: &[String]) -> anyho
 
 pub(super) fn execution_provider_dispatches(
     execution_providers: &[String],
+    inference_device_id: Option<i32>,
 ) -> Vec<ExecutionProviderDispatch> {
     execution_providers
         .iter()
-        .filter_map(|provider| execution_provider_dispatch(provider))
+        .filter_map(|provider| execution_provider_dispatch(provider, inference_device_id))
         .collect()
 }
 
-fn execution_provider_dispatch(provider: &str) -> Option<ExecutionProviderDispatch> {
+fn execution_provider_dispatch(
+    provider: &str,
+    inference_device_id: Option<i32>,
+) -> Option<ExecutionProviderDispatch> {
     match provider {
         "coreml" => Some(coreml_execution_provider(
             ep::coreml::ComputeUnits::All,
@@ -106,7 +114,7 @@ fn execution_provider_dispatch(provider: &str) -> Option<ExecutionProviderDispat
             ep::coreml::ComputeUnits::CPUAndNeuralEngine,
             false,
         )),
-        "cuda" => cuda_execution_provider(),
+        "cuda" => cuda_execution_provider(inference_device_id),
         "xnnpack" => Some(ep::XNNPACK::default().build()),
         "auto" | "autodevice" | "cpu" => None,
         other => {
@@ -128,18 +136,21 @@ fn coreml_execution_provider(
 }
 
 #[cfg(feature = "cuda")]
-fn cuda_execution_provider() -> Option<ExecutionProviderDispatch> {
-    Some(
-        ep::CUDA::default()
-            .with_tf32(true)
-            .with_prefer_nhwc(true)
-            .with_conv_max_workspace(true)
-            .build(),
-    )
+fn cuda_execution_provider(inference_device_id: Option<i32>) -> Option<ExecutionProviderDispatch> {
+    let mut provider = ep::CUDA::default()
+        .with_tf32(true)
+        .with_prefer_nhwc(true)
+        .with_conv_max_workspace(true);
+
+    if let Some(device_id) = inference_device_id {
+        provider = provider.with_device_id(device_id);
+    }
+
+    Some(provider.build())
 }
 
 #[cfg(not(feature = "cuda"))]
-fn cuda_execution_provider() -> Option<ExecutionProviderDispatch> {
+fn cuda_execution_provider(_inference_device_id: Option<i32>) -> Option<ExecutionProviderDispatch> {
     warn!("CUDA execution provider requested but this binary was built without `--features cuda`");
     None
 }

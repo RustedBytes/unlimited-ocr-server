@@ -79,5 +79,9 @@ allow_private_webhook_urls = false
 # Keep auto as the default. Explicit providers remain opt-in.
 execution_providers = ["auto"]
 
+# Optional ORT device id for providers that support device selection.
+# Currently honored by CUDA; omit to use the provider default device.
+# device_id = 0
+
 [logging]
 rust_log = "info,ort=warn"

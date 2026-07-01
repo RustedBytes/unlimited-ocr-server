@@ -89,6 +89,7 @@ pub(super) struct GenerationConfig {
 #[derive(Debug, Default, Deserialize)]
 pub(super) struct RuntimeConfig {
     pub(super) execution_providers: Option<Vec<String>>,
+    pub(super) device_id: Option<i32>,
 }
 
 #[derive(Debug, Default, Deserialize)]

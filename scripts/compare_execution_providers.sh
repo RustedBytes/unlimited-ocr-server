@@ -11,6 +11,7 @@ Usage:
 
 Optional environment:
   PROVIDER_LIST         Space-separated provider lists to test. Default: "cpu cuda,cpu"
+  INFERENCE_DEVICE_ID   Optional ORT device id forwarded to CUDA runs.
   MODEL_PATH            Prefill/full ONNX path. Default: Unlimited-OCR/onnx/unlimited_ocr_prefill.onnx
   DECODE_MODEL_PATH     Decode ONNX path. Defaults to sibling unlimited_ocr_decode.onnx when present.
   HOST_PORT             Host port for the temporary server. Default: 3001
@@ -193,6 +194,7 @@ for providers in $PROVIDER_LIST; do
     MODEL_PATH="$MODEL_PATH" \
     DECODE_MODEL_PATH="${DECODE_MODEL_PATH:-}" \
     EXECUTION_PROVIDERS="$providers" \
+    INFERENCE_DEVICE_ID="${INFERENCE_DEVICE_ID:-}" \
     MODEL_POOL_SIZE="$MODEL_POOL_SIZE" \
     MAX_NEW_TOKENS="$MAX_NEW_TOKENS" \
     JOB_TIMEOUT_SECONDS="$JOB_TIMEOUT_SECONDS" \

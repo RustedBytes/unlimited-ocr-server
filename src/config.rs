@@ -25,9 +25,9 @@ use self::{
     file::FileConfig,
     model_variant::{ModelPathSelection, parse_model_variant},
     settings::{
-        SettingSource, bool_setting, env_path, execution_providers_setting, path_list_setting,
-        path_setting, secret_setting, string_list_setting, string_setting, u32_setting,
-        u64_setting, usize_setting,
+        SettingSource, bool_setting, env_path, execution_providers_setting,
+        optional_non_negative_i32_setting, path_list_setting, path_setting, secret_setting,
+        string_list_setting, string_setting, u32_setting, u64_setting, usize_setting,
     },
 };
 
@@ -70,6 +70,7 @@ pub struct Config {
     pub webhooks_dead_letter_jsonl: PathBuf,
     pub allow_private_webhook_urls: bool,
     pub execution_providers: Vec<String>,
+    pub inference_device_id: Option<i32>,
 }
 
 impl Config {
@@ -244,6 +245,10 @@ impl Config {
                 false,
             )?,
             execution_providers,
+            inference_device_id: optional_non_negative_i32_setting(SettingSource::new(
+                "INFERENCE_DEVICE_ID",
+                runtime.device_id,
+            ))?,
         })
     }
 

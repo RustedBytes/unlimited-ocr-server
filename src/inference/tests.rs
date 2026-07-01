@@ -150,7 +150,7 @@ fn cleans_trailing_unlimited_ocr_eos_text() {
 #[test]
 fn cuda_provider_is_feature_gated() {
     let providers = vec!["cuda".to_string()];
-    let dispatches = execution_provider_dispatches(&providers);
+    let dispatches = execution_provider_dispatches(&providers, Some(1));
 
     assert_eq!(dispatches.len(), usize::from(cfg!(feature = "cuda")));
 }
@@ -160,11 +160,11 @@ fn backend_summary_keeps_requested_providers_separate_from_reported_devices() {
     let providers = vec!["cuda".to_string(), "cpu".to_string()];
     let devices = vec!["CPUExecutionProvider:CPU".to_string()];
 
-    let got = backend_summary(&providers, &devices);
+    let got = backend_summary(&providers, Some(1), &devices);
 
     assert_eq!(
         got,
-        "ort:requested_execution_providers=cuda,cpu;reported_devices=CPUExecutionProvider:CPU"
+        "ort:requested_execution_providers=cuda,cpu;configured_device_id=1;reported_devices=CPUExecutionProvider:CPU"
     );
 }
 
@@ -172,11 +172,11 @@ fn backend_summary_keeps_requested_providers_separate_from_reported_devices() {
 fn backend_summary_handles_empty_reported_devices() {
     let providers = vec!["auto".to_string()];
 
-    let got = backend_summary(&providers, &[]);
+    let got = backend_summary(&providers, None, &[]);
 
     assert_eq!(
         got,
-        "ort:requested_execution_providers=auto;reported_devices=none"
+        "ort:requested_execution_providers=auto;configured_device_id=default;reported_devices=none"
     );
 }
 
