@@ -130,7 +130,7 @@ Environment variables override TOML values when set:
 - `MODEL_PATH`: explicit ONNX model path, overrides `MODEL_VARIANT` path selection
 - `DECODE_MODEL_PATH`: optional text decode ONNX path for KV-cache generation
 - `MODEL_IMAGE_SIZE`: square image tensor size, default `1024`
-- `MAX_NEW_TOKENS`: maximum decoder tokens per generation
+- `MAX_NEW_TOKENS`: maximum decoder tokens per generation. Very high values can make a page run until `JOB_TIMEOUT_SECONDS` if the model does not emit EOS.
 - `TEMPERATURE`: generation sampling temperature; `0` uses deterministic argmax decoding
 - `JOB_TIMEOUT_SECONDS`: per-job inference timeout; set to `0` to disable timeout enforcement
 - `WEBHOOK_TIMEOUT_SECONDS`: total outbound webhook request timeout; set to `0` to disable
@@ -187,7 +187,7 @@ Request validation happens before the image is decoded for inference:
 - `validation.pdf_render_dpi` controls the PNG render resolution for PDF pages.
 - Only supported image formats with `image/*` content types and PDFs are accepted.
 
-Jobs are marked failed if inference exceeds `generation.job_timeout_seconds`. A timed-out blocking inference task may finish in the background, so the worker slot is restarted before it accepts more work.
+Jobs are marked failed if inference exceeds `generation.job_timeout_seconds`. ONNX inference runs inside a blocking task that cannot be forcibly interrupted once started, so a timed-out worker is marked not ready and is restarted only after the blocking task returns and releases its model resources.
 
 Webhook delivery uses `generation.webhook_timeout_seconds` for the full request and `generation.webhook_connect_timeout_seconds` for establishing the connection. Failed webhook deliveries retry up to `generation.webhook_max_attempts` times with exponential backoff starting at `generation.webhook_initial_backoff_ms`. Final failures are appended to `data/metadata/webhooks_dead_letter.jsonl`. Webhook failures are logged and do not change the completed job result.
 

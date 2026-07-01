@@ -51,7 +51,10 @@ max_image_width = 8192
 max_image_height = 8192
 
 [generation]
-max_new_tokens = 32768
+# Upper bound for decoder tokens per page. Increase only when pages are known
+# to need very long markdown output; high values can keep the GPU busy until
+# job_timeout_seconds if the model does not emit EOS.
+max_new_tokens = 1024
 temperature = 0.0
 
 # Set to 0 to disable per-job timeout enforcement.

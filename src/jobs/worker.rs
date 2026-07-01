@@ -121,7 +121,7 @@ async fn process_worker_request(
     let result = wait_for_inference(&runtime.config, join_handle).await;
     let elapsed_ms = job_started.elapsed().as_millis();
 
-    handle_inference_result(runtime, request.id, elapsed_ms, result, worker).await
+    handle_inference_result(runtime, worker_id, request.id, elapsed_ms, result, worker).await
 }
 
 fn spawn_inference(
@@ -145,6 +145,7 @@ fn spawn_inference(
 
 async fn handle_inference_result(
     runtime: &WorkerRuntime,
+    worker_id: usize,
     job_id: Uuid,
     elapsed_ms: u128,
     result: InferenceRunResult,
@@ -154,9 +155,10 @@ async fn handle_inference_result(
         InferenceRunResult::Completed(result) => {
             handle_completed_inference(runtime, job_id, elapsed_ms, *result, worker).await
         }
-        InferenceRunResult::TimedOut => {
+        InferenceRunResult::TimedOut(join_handle) => {
             runtime.metrics.record_job_timed_out(elapsed_ms);
             runtime.metrics.record_worker_restart();
+            runtime.workers.mark_stopped();
             finish_job(
                 &runtime.config,
                 &runtime.jobs,
@@ -169,6 +171,7 @@ async fn handle_inference_result(
                 )),
             )
             .await;
+            wait_for_timed_out_inference(worker_id, job_id, join_handle).await;
             true
         }
     }
@@ -273,20 +276,66 @@ type BlockingInferenceResult =
 
 enum InferenceRunResult {
     Completed(Box<BlockingInferenceResult>),
-    TimedOut,
+    TimedOut(BlockingInferenceJoin),
 }
 
 async fn wait_for_inference(
     config: &Config,
-    join_handle: BlockingInferenceJoin,
+    mut join_handle: BlockingInferenceJoin,
 ) -> InferenceRunResult {
     if config.job_timeout_seconds == 0 {
         return InferenceRunResult::Completed(Box::new(join_handle.await));
     }
 
-    match tokio::time::timeout(Duration::from_secs(config.job_timeout_seconds), join_handle).await {
+    match tokio::time::timeout(
+        Duration::from_secs(config.job_timeout_seconds),
+        &mut join_handle,
+    )
+    .await
+    {
         Ok(result) => InferenceRunResult::Completed(Box::new(result)),
-        Err(_) => InferenceRunResult::TimedOut,
+        Err(_) => InferenceRunResult::TimedOut(join_handle),
+    }
+}
+
+async fn wait_for_timed_out_inference(
+    worker_id: usize,
+    job_id: Uuid,
+    join_handle: BlockingInferenceJoin,
+) {
+    let started = Instant::now();
+    warn!(
+        "waiting for timed-out blocking inference to finish before restarting worker worker_id={} job_id={}",
+        worker_id, job_id
+    );
+
+    match join_handle.await {
+        Ok((_, _worker, Ok(_))) => {
+            warn!(
+                "timed-out blocking inference eventually succeeded after job was failed worker_id={} job_id={} elapsed_ms={}",
+                worker_id,
+                job_id,
+                started.elapsed().as_millis()
+            );
+        }
+        Ok((_, _worker, Err(err))) => {
+            warn!(
+                "timed-out blocking inference eventually failed worker_id={} job_id={} elapsed_ms={} error={}",
+                worker_id,
+                job_id,
+                started.elapsed().as_millis(),
+                err
+            );
+        }
+        Err(err) => {
+            error!(
+                "timed-out blocking inference task failed worker_id={} job_id={} elapsed_ms={} error={}",
+                worker_id,
+                job_id,
+                started.elapsed().as_millis(),
+                err
+            );
+        }
     }
 }
 
